@@ -6,6 +6,11 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		802C5C422F70D4DF00A9366B /* Supabase in Frameworks */ = {isa = PBXBuildFile; productRef = 802C5C412F70D4DF00A9366B /* Supabase */; };
+		802C5C452F70D4DF00A9366B /* Auth in Frameworks */ = {isa = PBXBuildFile; productRef = 802C5C462F70D4DF00A9366B /* Auth */; };
+/* End PBXBuildFile section */
+
 /* Begin PBXFileReference section */
 		802C5C282F70D4DE00A9366B /* Club360fit.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Club360fit.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
@@ -23,6 +28,8 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				802C5C452F70D4DF00A9366B /* Auth in Frameworks */,
+				802C5C422F70D4DF00A9366B /* Supabase in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -65,6 +72,8 @@
 			);
 			name = Club360fit;
 			packageProductDependencies = (
+				802C5C462F70D4DF00A9366B /* Auth */,
+				802C5C412F70D4DF00A9366B /* Supabase */,
 			);
 			productName = Club360fit;
 			productReference = 802C5C282F70D4DE00A9366B /* Club360fit.app */;
@@ -94,6 +103,9 @@
 			);
 			mainGroup = 802C5C1F2F70D4DE00A9366B;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				802C5C402F70D4DF00A9366B /* XCRemoteSwiftPackageReference "supabase-swift" */,
+			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 802C5C292F70D4DE00A9366B /* Products */;
 			projectDirPath = "";
@@ -332,6 +344,30 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		802C5C402F70D4DF00A9366B /* XCRemoteSwiftPackageReference "supabase-swift" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/supabase/supabase-swift";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 2.0.0;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		802C5C412F70D4DF00A9366B /* Supabase */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 802C5C402F70D4DF00A9366B /* XCRemoteSwiftPackageReference "supabase-swift" */;
+			productName = Supabase;
+		};
+		802C5C462F70D4DF00A9366B /* Auth */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 802C5C402F70D4DF00A9366B /* XCRemoteSwiftPackageReference "supabase-swift" */;
+			productName = Auth;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = 802C5C202F70D4DE00A9366B /* Project object */;
 }

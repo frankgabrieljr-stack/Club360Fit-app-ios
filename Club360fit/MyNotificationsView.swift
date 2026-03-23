@@ -1,0 +1,114 @@
+import Observation
+import SwiftUI
+
+/// Mirrors Android `MyNotificationsScreen`.
+struct MyNotificationsView: View {
+    @Environment(ClientHomeViewModel.self) private var home: ClientHomeViewModel
+    @State private var model = MyNotificationsViewModel()
+
+    var body: some View {
+        Group {
+            if home.clientId == nil {
+                ContentUnavailableView("No profile", systemImage: "person.crop.circle.badge.xmark")
+            } else {
+                listBody
+            }
+        }
+        .navigationTitle("Updates")
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .primaryAction) {
+                Button("Mark all read") {
+                    Task {
+                        guard let cid = home.clientId else { return }
+                        await model.markAllRead(clientId: cid)
+                        await home.reloadNotificationsCount()
+                    }
+                }
+                .tint(Club360Theme.burgundy)
+            }
+        }
+        .task(id: home.clientId) {
+            guard let cid = home.clientId else { return }
+            await model.load(clientId: cid)
+        }
+        .refreshable {
+            guard let cid = home.clientId else { return }
+            await model.load(clientId: cid)
+        }
+    }
+
+    private var listBody: some View {
+        Group {
+            if model.isLoading {
+                ProgressView()
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else if model.items.isEmpty {
+                Text("No updates yet.")
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else {
+                ScrollView {
+                    LazyVStack(alignment: .leading, spacing: 10) {
+                        ForEach(model.items) { n in
+                            notificationCard(n)
+                        }
+                    }
+                    .padding()
+                }
+            }
+        }
+    }
+
+    private func notificationCard(_ n: ClientNotificationDTO) -> some View {
+        Button {
+            Task {
+                guard let id = n.rowId, let cid = home.clientId else { return }
+                await model.markOneRead(notificationId: id, clientId: cid)
+                await home.reloadNotificationsCount()
+            }
+        } label: {
+            VStack(alignment: .leading, spacing: 4) {
+                Text(n.title)
+                    .font(.headline)
+                    .foregroundStyle(Club360Theme.burgundy)
+                Text(n.body)
+                    .font(.body)
+                    .foregroundStyle(.primary)
+                if let created = n.createdAt {
+                    Text(Club360Formatting.formatPaymentInstant(created))
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding()
+            .background(n.readAt == nil ? Club360Theme.burgundy.opacity(0.12) : Color(.secondarySystemBackground))
+            .clipShape(RoundedRectangle(cornerRadius: 10))
+        }
+        .buttonStyle(.plain)
+    }
+}
+
+@Observable
+@MainActor
+private final class MyNotificationsViewModel {
+    var isLoading = true
+    var items: [ClientNotificationDTO] = []
+
+    func load(clientId: String) async {
+        isLoading = true
+        defer { isLoading = false }
+        items = (try? await ClientDataService.fetchClientNotifications(clientId: clientId)) ?? []
+    }
+
+    func markOneRead(notificationId: String, clientId: String) async {
+        try? await ClientDataService.markNotificationRead(notificationId: notificationId)
+        await load(clientId: clientId)
+    }
+
+    func markAllRead(clientId: String) async {
+        try? await ClientDataService.markAllNotificationsRead(clientId: clientId)
+        await load(clientId: clientId)
+    }
+}
