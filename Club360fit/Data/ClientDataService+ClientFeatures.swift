@@ -204,7 +204,8 @@ extension ClientDataService {
     }
 
     static func uploadUserAvatar(data: Data, userId: String) async throws -> URL {
-        let path = "\(userId)/avatar.jpg"
+        // Lowercase UUID so Storage path matches Supabase `auth.uid()::text` and RLS policies.
+        let path = "\(userId.lowercased())/avatar.jpg"
         let storage = Club360FitSupabase.shared.storage.from(Club360FitSupabase.avatarsBucket)
         try await storage.upload(
             path,

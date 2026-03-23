@@ -148,10 +148,15 @@ struct UserProfileView: View {
         defer { isUploadingAvatar = false }
         do {
             let url = try await ClientDataService.uploadUserAvatar(data: data, userId: uid)
-            try await auth.updateUserMetadata(["avatar_url": .string(url.absoluteString)])
+            do {
+                try await auth.updateUserMetadata(["avatar_url": .string(url.absoluteString)])
+            } catch {
+                uploadError = "Saved photo, but profile update failed: \(error.localizedDescription)"
+                return
+            }
             pickerItem = nil
         } catch {
-            uploadError = error.localizedDescription
+            uploadError = "Upload failed: \(error.localizedDescription)"
         }
     }
 }
