@@ -19,6 +19,9 @@ final class ClientHomeViewModel {
     var canViewEvents = false
     var canViewPayments = false
 
+    /// First day the client record existed (`clients.created_at`), for date pickers (e.g. daily habits).
+    var memberSinceStartOfDay: Date?
+
     /// Unread client notifications (Android home badge).
     var unreadNotifications = 0
 
@@ -80,6 +83,7 @@ final class ClientHomeViewModel {
 
     private func applyDashboard(for row: ClientDTO, clientId cid: String, welcomeEmail: String?) async throws {
         self.clientId = cid
+        memberSinceStartOfDay = Self.startOfDayFromSupabaseTimestamp(row.createdAt)
         welcomeName = welcomeEmail.map { Self.welcomeName(from: row, email: $0) } ?? Self.coachViewWelcomeName(from: row)
         canViewWorkouts = row.canViewWorkouts
         canViewNutrition = row.canViewNutrition
@@ -113,6 +117,7 @@ final class ClientHomeViewModel {
 
     private func resetSummary() {
         clientId = nil
+        memberSinceStartOfDay = nil
         welcomeName = "there"
         currentWorkoutTitle = nil
         workoutPlanCount = 0
@@ -146,6 +151,22 @@ final class ClientHomeViewModel {
         } else {
             model.nextSessionLine = nil
         }
+    }
+
+    /// Parses Supabase `timestamptz` strings for calendar ranges.
+    private static func startOfDayFromSupabaseTimestamp(_ raw: String?) -> Date? {
+        guard let raw, !raw.isEmpty else { return nil }
+        let cal = Calendar.current
+        let iso = ISO8601DateFormatter()
+        iso.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        if let d = iso.date(from: raw) {
+            return cal.startOfDay(for: d)
+        }
+        iso.formatOptions = [.withInternetDateTime]
+        if let d = iso.date(from: raw) {
+            return cal.startOfDay(for: d)
+        }
+        return nil
     }
 
     private static func welcomeName(from client: ClientDTO, email: String?) -> String {

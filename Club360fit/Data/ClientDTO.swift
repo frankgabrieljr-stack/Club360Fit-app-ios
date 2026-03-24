@@ -9,6 +9,8 @@ struct ClientDTO: Decodable, Sendable {
     let canViewWorkouts: Bool
     let canViewPayments: Bool
     let canViewEvents: Bool
+    /// When this `clients` row was created (member since); ISO-8601 from Supabase.
+    let createdAt: String?
 
     enum CodingKeys: String, CodingKey {
         case id
@@ -18,6 +20,7 @@ struct ClientDTO: Decodable, Sendable {
         case canViewWorkouts = "can_view_workouts"
         case canViewPayments = "can_view_payments"
         case canViewEvents = "can_view_events"
+        case createdAt = "created_at"
     }
 
     init(from decoder: Decoder) throws {
@@ -29,6 +32,7 @@ struct ClientDTO: Decodable, Sendable {
         canViewWorkouts = try c.decodeIfPresent(Bool.self, forKey: .canViewWorkouts) ?? false
         canViewPayments = try c.decodeIfPresent(Bool.self, forKey: .canViewPayments) ?? false
         canViewEvents = try c.decodeIfPresent(Bool.self, forKey: .canViewEvents) ?? false
+        createdAt = try c.decodeIfPresent(String.self, forKey: .createdAt)
     }
 
     /// Stable row identity for lists (`clients.id` preferred).

@@ -30,6 +30,18 @@ extension ClientDataService {
         return rows.first
     }
 
+    /// All habit rows for the client, newest `log_date` first (for history UI).
+    static func fetchDailyHabitLogs(clientId: String, limit: Int = 5000) async throws -> [DailyHabitLogDTO] {
+        try await svc
+            .from("daily_habit_logs")
+            .select()
+            .eq("client_id", value: clientId)
+            .order("log_date", ascending: false)
+            .limit(limit)
+            .execute()
+            .value
+    }
+
     static func upsertDailyHabit(
         clientId: String,
         date: Date,

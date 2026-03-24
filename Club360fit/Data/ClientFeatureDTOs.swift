@@ -40,7 +40,7 @@ struct ScheduleEventDTO: Decodable, Sendable, Identifiable {
 
 // MARK: - Daily habits (`daily_habit_logs`)
 
-struct DailyHabitLogDTO: Decodable, Sendable {
+struct DailyHabitLogDTO: Decodable, Sendable, Identifiable {
     let rowId: String?
     let clientId: String
     let logDate: String
@@ -56,6 +56,8 @@ struct DailyHabitLogDTO: Decodable, Sendable {
         case steps
         case sleepHours = "sleep_hours"
     }
+
+    var id: String { rowId ?? "\(clientId)-\(logDate)" }
 }
 
 struct DailyHabitLogInsert: Encodable, Sendable {
