@@ -16,6 +16,7 @@ struct MyNotificationsView: View {
         }
         .navigationTitle("Updates")
         .navigationBarTitleDisplayMode(.inline)
+        .toolbarBackground(.ultraThinMaterial, for: .navigationBar)
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
                 Button("Mark all read") {
@@ -25,7 +26,7 @@ struct MyNotificationsView: View {
                         await home.reloadNotificationsCount()
                     }
                 }
-                .tint(Club360Theme.burgundy)
+                .tint(Club360Theme.tealDark)
             }
         }
         .task(id: home.clientId) {
@@ -39,22 +40,27 @@ struct MyNotificationsView: View {
     }
 
     private var listBody: some View {
-        Group {
-            if model.isLoading {
-                ProgressView()
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-            } else if model.items.isEmpty {
-                Text("No updates yet.")
-                    .foregroundStyle(.secondary)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-            } else {
-                ScrollView {
-                    LazyVStack(alignment: .leading, spacing: 10) {
-                        ForEach(model.items) { n in
-                            notificationCard(n)
+        ZStack {
+            Club360ScreenBackground()
+
+            Group {
+                if model.isLoading {
+                    ProgressView()
+                        .tint(Club360Theme.tealDark)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                } else if model.items.isEmpty {
+                    Text("No updates yet.")
+                        .foregroundStyle(.secondary)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                } else {
+                    ScrollView {
+                        LazyVStack(alignment: .leading, spacing: 12) {
+                            ForEach(model.items) { n in
+                                notificationCard(n)
+                            }
                         }
+                        .padding()
                     }
-                    .padding()
                 }
             }
         }
@@ -68,23 +74,30 @@ struct MyNotificationsView: View {
                 await home.reloadNotificationsCount()
             }
         } label: {
-            VStack(alignment: .leading, spacing: 4) {
-                Text(n.title)
-                    .font(.headline)
-                    .foregroundStyle(Club360Theme.burgundy)
+            HStack(alignment: .top, spacing: 12) {
+                if n.readAt == nil {
+                    Circle()
+                        .fill(Club360Theme.peachDeep)
+                        .frame(width: 10, height: 10)
+                        .padding(.top, 4)
+                }
+                VStack(alignment: .leading, spacing: 6) {
+                    Text(n.title)
+                        .font(.headline.weight(.semibold))
+                        .foregroundStyle(Club360Theme.cardTitle)
                 Text(n.body)
                     .font(.body)
-                    .foregroundStyle(.primary)
-                if let created = n.createdAt {
+                    .foregroundStyle(Club360Theme.cardTitle)
+                    if let created = n.createdAt {
                     Text(Club360Formatting.formatPaymentInstant(created))
                         .font(.caption)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(Club360Theme.cardSubtitle)
+                    }
                 }
+                .frame(maxWidth: .infinity, alignment: .leading)
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding()
-            .background(n.readAt == nil ? Club360Theme.burgundy.opacity(0.12) : Color(.secondarySystemBackground))
-            .clipShape(RoundedRectangle(cornerRadius: 10))
+            .padding(16)
+            .club360Glass()
         }
         .buttonStyle(.plain)
     }

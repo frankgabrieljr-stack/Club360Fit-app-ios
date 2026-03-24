@@ -22,52 +22,64 @@ struct MyDailyHabitsView: View {
         }
         .navigationTitle("Daily habits")
         .navigationBarTitleDisplayMode(.large)
+        .toolbarBackground(.ultraThinMaterial, for: .navigationBar)
         .task(id: home.clientId) {
             await loadToday()
         }
     }
 
     private var formContent: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 16) {
-                if isLoading {
-                    ProgressView("Loading…")
-                        .frame(maxWidth: .infinity)
+        ZStack {
+            Club360ScreenBackground()
+
+            ScrollView {
+                VStack(alignment: .leading, spacing: 18) {
+                    if isLoading {
+                        ProgressView("Loading…")
+                            .tint(Club360Theme.tealDark)
+                            .frame(maxWidth: .infinity)
+                    }
+
+                    VStack(alignment: .leading, spacing: 14) {
+                        Text(Club360DateFormats.displayDay(fromPostgresDay: Club360DateFormats.dayString(Date())))
+                            .font(.title3.weight(.semibold))
+                            .foregroundStyle(Club360Theme.cardTitle)
+                        Text("Log once per day. Any entry counts toward your streak.")
+                            .font(.caption)
+                            .foregroundStyle(Club360Theme.cardSubtitle)
+
+                        Toggle("Water goal met", isOn: $waterDone)
+                            .tint(Club360Theme.tealDark)
+
+                        TextField("Steps (optional)", text: $stepsText)
+                            .keyboardType(.numberPad)
+
+                        TextField("Sleep (hours, optional)", text: $sleepText)
+                            .keyboardType(.decimalPad)
+
+                        if let errorMessage {
+                            Text(errorMessage).font(.footnote).foregroundStyle(.red)
+                        }
+                        if let toast {
+                            Text(toast)
+                                .font(.footnote.weight(.medium))
+                                .foregroundStyle(Club360Theme.tealDark)
+                        }
+
+                        Button {
+                            Task { await save() }
+                        } label: {
+                            Text(isSaving ? "Saving…" : "Save today")
+                        }
+                        .buttonStyle(Club360PrimaryGradientButtonStyle())
+                        .disabled(isSaving || home.clientId == nil)
+                        .opacity(isSaving ? 0.75 : 1)
+                    }
+                    .padding(18)
+                    .club360Glass(cornerRadius: 28)
                 }
-                Text(Club360DateFormats.displayDay(fromPostgresDay: Club360DateFormats.dayString(Date())))
-                    .font(.title3.weight(.semibold))
-                    .foregroundStyle(Club360Theme.burgundy)
-                Text("Log once per day. Any entry counts toward your streak.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-
-                Toggle("Water goal met", isOn: $waterDone)
-                    .tint(Club360Theme.burgundy)
-
-                TextField("Steps (optional)", text: $stepsText)
-                    .keyboardType(.numberPad)
-
-                TextField("Sleep (hours, optional)", text: $sleepText)
-                    .keyboardType(.decimalPad)
-
-                if let errorMessage {
-                    Text(errorMessage).font(.footnote).foregroundStyle(.red)
-                }
-                if let toast {
-                    Text(toast).font(.footnote).foregroundStyle(Club360Theme.burgundy)
-                }
-
-                Button {
-                    Task { await save() }
-                } label: {
-                    Text(isSaving ? "Saving…" : "Save today")
-                        .frame(maxWidth: .infinity)
-                }
-                .buttonStyle(.borderedProminent)
-                .tint(Club360Theme.burgundy)
-                .disabled(isSaving || home.clientId == nil)
+                .padding()
             }
-            .padding()
         }
     }
 

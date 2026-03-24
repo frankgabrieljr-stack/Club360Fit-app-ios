@@ -28,7 +28,7 @@ final class Club360AuthSession {
 
     private func observeAuthStateChanges() async {
         // Class is @MainActor — assign directly (avoids spurious `await` on `MainActor.run`).
-        for await (_, newSession) in await client.auth.authStateChanges {
+        for await (_, newSession) in client.auth.authStateChanges {
             session = newSession ?? client.auth.currentSession
         }
     }

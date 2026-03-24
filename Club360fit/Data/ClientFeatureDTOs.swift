@@ -226,6 +226,20 @@ struct NotificationReadAtPatch: Encodable, Sendable {
     enum CodingKeys: String, CodingKey { case readAt = "read_at" }
 }
 
+struct ClientNotificationInsert: Encodable, Sendable {
+    let clientId: String
+    let kind: String
+    let title: String
+    let body: String
+
+    enum CodingKeys: String, CodingKey {
+        case clientId = "client_id"
+        case kind
+        case title
+        case body
+    }
+}
+
 // MARK: - Transformation gallery (Storage)
 
 struct TransformationImage: Identifiable, Hashable, Sendable {

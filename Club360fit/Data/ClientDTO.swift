@@ -30,4 +30,10 @@ struct ClientDTO: Decodable, Sendable {
         canViewPayments = try c.decodeIfPresent(Bool.self, forKey: .canViewPayments) ?? false
         canViewEvents = try c.decodeIfPresent(Bool.self, forKey: .canViewEvents) ?? false
     }
+
+    /// Stable row identity for lists (`clients.id` preferred).
+    var stableId: String {
+        if let s = id, !s.isEmpty { return s }
+        return userId
+    }
 }

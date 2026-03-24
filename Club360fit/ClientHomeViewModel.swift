@@ -50,44 +50,70 @@ final class ClientHomeViewModel {
                 return
             }
 
-            clientId = cid
-            welcomeName = Self.welcomeName(from: row, email: session.user.email)
-            canViewWorkouts = row.canViewWorkouts
-            canViewNutrition = row.canViewNutrition
-            canViewEvents = row.canViewEvents
-            canViewPayments = row.canViewPayments
-
-            async let workouts = ClientDataService.fetchWorkoutPlans(clientId: cid)
-            async let meals = ClientDataService.fetchMealPlans(clientId: cid)
-            async let checkIns = ClientDataService.fetchProgressCheckIns(clientId: cid)
-            async let unread = ClientDataService.unreadNotificationCount(clientId: cid)
-
-            let wPlans = try await workouts
-            let mPlans = try await meals
-            let pRows = try await checkIns
-            unreadNotifications = (try? await unread) ?? 0
-
-            let events: [ScheduleEventDTO]
-            if row.canViewEvents {
-                events = try await ClientDataService.fetchScheduleEvents(clientId: cid)
-            } else {
-                events = []
-            }
-            Self.applyScheduleSummary(events: events, to: self)
-
-            workoutPlanCount = wPlans.count
-            currentWorkoutTitle = wPlans.first?.title
-            mealPlanCount = mPlans.count
-            currentMealTitle = mPlans.first?.title
-            progressCheckInCount = pRows.count
+            try await applyDashboard(for: row, clientId: cid, welcomeEmail: session.user.email)
         } catch {
             errorMessage = error.localizedDescription
             resetSummary()
         }
     }
 
+    /// Coach/admin: load dashboard data for another client (same child views as the member app).
+    func loadForClient(clientId requestedId: String) async {
+        isLoading = true
+        errorMessage = nil
+        defer { isLoading = false }
+
+        do {
+            guard let row = try await ClientDataService.fetchClientById(requestedId),
+                  let cid = row.id, !cid.isEmpty else {
+                errorMessage = "Client not found or not visible to your account."
+                resetSummary()
+                return
+            }
+
+            try await applyDashboard(for: row, clientId: cid, welcomeEmail: nil)
+        } catch {
+            errorMessage = error.localizedDescription
+            resetSummary()
+        }
+    }
+
+    private func applyDashboard(for row: ClientDTO, clientId cid: String, welcomeEmail: String?) async throws {
+        self.clientId = cid
+        welcomeName = welcomeEmail.map { Self.welcomeName(from: row, email: $0) } ?? Self.coachViewWelcomeName(from: row)
+        canViewWorkouts = row.canViewWorkouts
+        canViewNutrition = row.canViewNutrition
+        canViewEvents = row.canViewEvents
+        canViewPayments = row.canViewPayments
+
+        async let workouts = ClientDataService.fetchWorkoutPlans(clientId: cid)
+        async let meals = ClientDataService.fetchMealPlans(clientId: cid)
+        async let checkIns = ClientDataService.fetchProgressCheckIns(clientId: cid)
+        async let unread = ClientDataService.unreadNotificationCount(clientId: cid)
+
+        let wPlans = try await workouts
+        let mPlans = try await meals
+        let pRows = try await checkIns
+        unreadNotifications = (try? await unread) ?? 0
+
+        let events: [ScheduleEventDTO]
+        if row.canViewEvents {
+            events = try await ClientDataService.fetchScheduleEvents(clientId: cid)
+        } else {
+            events = []
+        }
+        Self.applyScheduleSummary(events: events, to: self)
+
+        workoutPlanCount = wPlans.count
+        currentWorkoutTitle = wPlans.first?.title
+        mealPlanCount = mPlans.count
+        currentMealTitle = mPlans.first?.title
+        progressCheckInCount = pRows.count
+    }
+
     private func resetSummary() {
         clientId = nil
+        welcomeName = "there"
         currentWorkoutTitle = nil
         workoutPlanCount = 0
         currentMealTitle = nil
@@ -130,5 +156,13 @@ final class ClientHomeViewModel {
             return String(local)
         }
         return "there"
+    }
+
+    /// First name for coach-facing headers (never uses the coach’s email).
+    private static func coachViewWelcomeName(from client: ClientDTO) -> String {
+        if let full = client.fullName?.trimmingCharacters(in: .whitespacesAndNewlines), !full.isEmpty {
+            return full.split(whereSeparator: { $0.isWhitespace }).first.map(String.init) ?? "Member"
+        }
+        return "Member"
     }
 }

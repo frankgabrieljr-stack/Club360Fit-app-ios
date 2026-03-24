@@ -45,13 +45,15 @@ struct SignInView: View {
                     if isBusy {
                         HStack {
                             ProgressView()
+                                .tint(.white)
                             Text("Signing in…")
                         }
                     } else {
                         Text("Sign in")
-                            .frame(maxWidth: .infinity)
                     }
                 }
+                .buttonStyle(Club360PrimaryGradientButtonStyle())
+                .listRowBackground(Color.clear)
                 .disabled(isBusy || email.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || password.isEmpty)
             }
             Section {
@@ -60,8 +62,11 @@ struct SignInView: View {
                 }
             }
         }
+        .tint(Club360Theme.tealDark)
+        .club360FormScreen()
         .navigationTitle("Sign in")
         .navigationBarTitleDisplayMode(.inline)
+        .toolbarBackground(.ultraThinMaterial, for: .navigationBar)
     }
 }
 

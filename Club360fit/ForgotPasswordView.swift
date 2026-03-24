@@ -51,18 +51,23 @@ struct ForgotPasswordView: View {
                     if isSending {
                         HStack {
                             ProgressView()
+                                .tint(.white)
                             Text("Sending…")
                         }
                     } else {
                         Text("Send reset link")
-                            .frame(maxWidth: .infinity)
                     }
                 }
+                .buttonStyle(Club360PrimaryGradientButtonStyle())
+                .listRowBackground(Color.clear)
                 .disabled(isSending || email.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
             }
         }
+        .tint(Club360Theme.tealDark)
+        .club360FormScreen()
         .navigationTitle("Forgot password")
         .navigationBarTitleDisplayMode(.inline)
+        .toolbarBackground(.ultraThinMaterial, for: .navigationBar)
     }
 }
 

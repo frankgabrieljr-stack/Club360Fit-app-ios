@@ -22,6 +22,7 @@ struct MyScheduleView: View {
         }
         .navigationTitle("Schedule")
         .navigationBarTitleDisplayMode(.large)
+        .toolbarBackground(.ultraThinMaterial, for: .navigationBar)
         .task(id: home.clientId) {
             guard let cid = home.clientId else { return }
             await model.load(clientId: cid)
@@ -33,54 +34,65 @@ struct MyScheduleView: View {
     }
 
     private var scheduleBody: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 14) {
-                if model.isLoading {
-                    ProgressView("Loading schedule…")
-                        .frame(maxWidth: .infinity)
-                }
-                if let err = model.errorMessage {
-                    Text(err).font(.footnote).foregroundStyle(.red)
-                }
-                if model.upcoming.isEmpty, model.past.isEmpty, !model.isLoading {
-                    Text("No sessions scheduled yet.")
-                        .foregroundStyle(.secondary)
-                }
-                if !model.upcoming.isEmpty {
-                    Text("Upcoming")
-                        .font(.headline)
-                        .foregroundStyle(Club360Theme.burgundy)
-                    ForEach(model.upcoming, id: \.id) { s in
-                        sessionBlock(s, small: false)
+        ZStack {
+            Club360ScreenBackground()
+
+            ScrollView {
+                VStack(alignment: .leading, spacing: 16) {
+                    if model.isLoading {
+                        ProgressView("Loading schedule…")
+                            .tint(Club360Theme.tealDark)
+                            .frame(maxWidth: .infinity)
+                    }
+                    if let err = model.errorMessage {
+                        Text(err)
+                            .font(.footnote)
+                            .foregroundStyle(.red)
+                            .padding()
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .club360Glass(cornerRadius: 22)
+                    }
+                    if model.upcoming.isEmpty, model.past.isEmpty, !model.isLoading {
+                        Text("No sessions scheduled yet.")
+                            .foregroundStyle(.secondary)
+                    }
+                    if !model.upcoming.isEmpty {
+                        Text("Upcoming")
+                            .font(.headline.weight(.semibold))
+                            .foregroundStyle(Club360Theme.cardTitle)
+                        ForEach(model.upcoming, id: \.id) { s in
+                            sessionBlock(s, small: false)
+                        }
+                    }
+                    if !model.past.isEmpty {
+                        Text("Past")
+                            .font(.headline.weight(.semibold))
+                            .foregroundStyle(Club360Theme.cardTitle)
+                        ForEach(Array(model.past.suffix(20)), id: \.id) { s in
+                            sessionBlock(s, small: true)
+                        }
                     }
                 }
-                if !model.past.isEmpty {
-                    Text("Past")
-                        .font(.headline)
-                        .foregroundStyle(Club360Theme.burgundy)
-                    ForEach(Array(model.past.suffix(20)), id: \.id) { s in
-                        sessionBlock(s, small: true)
-                    }
-                }
+                .padding()
             }
-            .padding()
         }
     }
 
     private func sessionBlock(_ s: ScheduleEventDTO, small: Bool) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
+        VStack(alignment: .leading, spacing: 6) {
             Text("\(Club360DateFormats.displayDay(fromPostgresDay: s.date)) at \(s.time) – \(s.title)")
-                .font(small ? .caption : .body)
-                .foregroundStyle(small ? .secondary : .primary)
+                .font(small ? .caption.weight(.medium) : .body.weight(.medium))
+                .foregroundStyle(small ? Club360Theme.cardSubtitle : Club360Theme.cardTitle)
             let n = (s.notes ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
             if !n.isEmpty {
                 Text(n)
                     .font(.caption)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(Club360Theme.cardSubtitle)
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(.bottom, 8)
+        .padding(14)
+        .club360Glass(cornerRadius: 28)
     }
 }
 

@@ -5,7 +5,7 @@ extension Calendar {
     static func weekStartSunday(containing date: Date) -> Date {
         let cal = Calendar(identifier: .iso8601)
         let day = cal.startOfDay(for: date)
-        var comps = cal.dateComponents([.yearForWeekOfYear, .weekOfYear], from: day)
+        let comps = cal.dateComponents([.yearForWeekOfYear, .weekOfYear], from: day)
         guard let monday = cal.date(from: comps) else { return day }
         return cal.date(byAdding: .day, value: 6, to: monday) ?? day
     }

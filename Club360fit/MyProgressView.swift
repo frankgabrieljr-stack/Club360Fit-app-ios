@@ -21,6 +21,7 @@ struct MyProgressView: View {
         }
         .navigationTitle("Progress")
         .navigationBarTitleDisplayMode(.large)
+        .toolbarBackground(.ultraThinMaterial, for: .navigationBar)
         .task(id: home.clientId) {
             guard let cid = home.clientId else { return }
             await model.load(clientId: cid)
@@ -40,69 +41,76 @@ struct MyProgressView: View {
 
     @ViewBuilder
     private var progressContent: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 16) {
-                if model.isLoading {
-                    ProgressView("Loading check-ins…")
-                        .frame(maxWidth: .infinity)
-                        .padding()
-                }
+        ZStack {
+            Club360ScreenBackground()
 
-                if let err = model.errorMessage {
-                    Text(err)
-                        .font(.footnote)
-                        .foregroundStyle(.red)
-                }
-
-                if model.checkIns.isEmpty, !model.isLoading {
-                    Text("No check-ins yet.")
-                        .font(.body)
-                        .foregroundStyle(.secondary)
-                } else {
-                    ForEach(model.checkIns, id: \.rowIdentity) { checkIn in
-                        VStack(alignment: .leading, spacing: 6) {
-                            Text(Club360DateFormats.displayDay(fromPostgresDay: checkIn.checkInDate))
-                                .font(.headline)
-                                .foregroundStyle(Club360Theme.burgundy)
-
-                            HStack(spacing: 10) {
-                                if let lbs = Club360Units.displayPoundsFromKg(checkIn.weightKg) {
-                                    Text(lbs)
-                                        .font(.caption)
-                                }
-                                if checkIn.workoutDone {
-                                    Text("Workout ✓")
-                                        .font(.caption)
-                                }
-                                if checkIn.mealsFollowed {
-                                    Text("Meals ✓")
-                                        .font(.caption)
-                                }
-                            }
-                            .foregroundStyle(.primary)
-
-                            let noteText = (checkIn.notes ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
-                            if !noteText.isEmpty {
-                                Text(noteText)
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                            }
-                        }
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding(.bottom, 8)
+            ScrollView {
+                VStack(alignment: .leading, spacing: 18) {
+                    if model.isLoading {
+                        ProgressView("Loading check-ins…")
+                            .tint(Club360Theme.tealDark)
+                            .frame(maxWidth: .infinity)
+                            .padding()
                     }
-                }
 
-                Button {
-                    showLogSheet = true
-                } label: {
-                    Text("Log progress")
-                        .frame(maxWidth: .infinity)
+                    if let err = model.errorMessage {
+                        Text(err)
+                            .font(.footnote)
+                            .foregroundStyle(.red)
+                            .padding()
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .club360Glass(cornerRadius: 28)
+                    }
+
+                    if model.checkIns.isEmpty, !model.isLoading {
+                        Text("No check-ins yet.")
+                            .font(.body)
+                            .foregroundStyle(Club360Theme.cardSubtitle)
+                    } else {
+                        ForEach(model.checkIns, id: \.rowIdentity) { checkIn in
+                            VStack(alignment: .leading, spacing: 8) {
+                                Text(Club360DateFormats.displayDay(fromPostgresDay: checkIn.checkInDate))
+                                    .font(.headline.weight(.semibold))
+                                    .foregroundStyle(Club360Theme.cardTitle)
+
+                                HStack(spacing: 10) {
+                                    if let lbs = Club360Units.displayPoundsFromKg(checkIn.weightKg) {
+                                        Text(lbs)
+                                            .font(.caption)
+                                    }
+                                    if checkIn.workoutDone {
+                                        Text("Workout ✓")
+                                            .font(.caption)
+                                    }
+                                    if checkIn.mealsFollowed {
+                                        Text("Meals ✓")
+                                            .font(.caption)
+                                    }
+                                }
+                                .foregroundStyle(Club360Theme.cardTitle)
+
+                                let noteText = (checkIn.notes ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+                                if !noteText.isEmpty {
+                                    Text(noteText)
+                                        .font(.caption)
+                                        .foregroundStyle(Club360Theme.cardSubtitle)
+                                }
+                            }
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(16)
+                            .club360Glass(cornerRadius: 28)
+                        }
+                    }
+
+                    Button {
+                        showLogSheet = true
+                    } label: {
+                        Text("Log progress")
+                    }
+                    .buttonStyle(Club360PrimaryGradientButtonStyle())
                 }
-                .buttonStyle(.bordered)
-                .tint(Club360Theme.burgundy)
+                .padding()
             }
-            .padding()
         }
     }
 }
@@ -156,9 +164,9 @@ private struct LogProgressSheet: View {
                 }
                 Section {
                     Toggle("Workout completed?", isOn: $workoutDone)
-                        .tint(Club360Theme.burgundy)
+                        .tint(Club360Theme.tealDark)
                     Toggle("Meals followed?", isOn: $mealsFollowed)
-                        .tint(Club360Theme.burgundy)
+                        .tint(Club360Theme.tealDark)
                 }
                 if let errorMessage {
                     Section {
@@ -168,8 +176,11 @@ private struct LogProgressSheet: View {
                     }
                 }
             }
+            .tint(Club360Theme.tealDark)
+            .club360FormScreen()
             .navigationTitle("Log progress")
             .navigationBarTitleDisplayMode(.inline)
+            .toolbarBackground(.ultraThinMaterial, for: .navigationBar)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") {
@@ -182,7 +193,7 @@ private struct LogProgressSheet: View {
                         ProgressView()
                     } else {
                         Button("Save") { Task { await save() } }
-                            .foregroundStyle(Club360Theme.burgundy)
+                            .foregroundStyle(Club360Theme.tealDark)
                     }
                 }
             }

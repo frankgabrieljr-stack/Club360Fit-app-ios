@@ -56,6 +56,7 @@ struct CreateAccountView: View {
             }
             Section {
                 Toggle("I am an admin", isOn: $isAdmin)
+                    .tint(Club360Theme.tealDark)
             }
             if needsEmailConfirmation {
                 Section {
@@ -100,13 +101,15 @@ struct CreateAccountView: View {
                     if isBusy {
                         HStack {
                             ProgressView()
+                                .tint(.white)
                             Text("Creating account…")
                         }
                     } else {
                         Text("Create account")
-                            .frame(maxWidth: .infinity)
                     }
                 }
+                .buttonStyle(Club360PrimaryGradientButtonStyle())
+                .listRowBackground(Color.clear)
                 .disabled(isBusy || !canSubmit)
             }
             Section {
@@ -115,8 +118,11 @@ struct CreateAccountView: View {
                 }
             }
         }
+        .tint(Club360Theme.tealDark)
+        .club360FormScreen()
         .navigationTitle("Create account")
         .navigationBarTitleDisplayMode(.inline)
+        .toolbarBackground(.ultraThinMaterial, for: .navigationBar)
     }
 
     private var canSubmit: Bool {

@@ -11,57 +11,66 @@ struct TransformationGalleryView: View {
     @State private var currentIndex = 0
 
     var body: some View {
-        ZStack {
-            LinearGradient(
-                colors: [Color.black, Color(white: 0.15), Color.black],
-                startPoint: .top,
-                endPoint: .bottom
-            )
-            .ignoresSafeArea()
-
+        Group {
             if model.isLoading {
-                ProgressView()
-                    .tint(Club360Theme.burgundy)
-            } else if model.images.isEmpty {
-                Text("No transformations yet. Admins can add photos with +.")
-                    .multilineTextAlignment(.center)
-                    .foregroundStyle(.secondary)
-                    .padding()
-            } else {
-                TabView(selection: $currentIndex) {
-                    ForEach(Array(model.images.enumerated()), id: \.element.id) { idx, img in
-                        AsyncImage(url: img.url) { phase in
-                            switch phase {
-                            case .empty:
-                                ProgressView().tint(Club360Theme.burgundy)
-                            case let .success(image):
-                                image
-                                    .resizable()
-                                    .scaledToFit()
-                                    .padding()
-                            case .failure:
-                                Image(systemName: "photo")
-                                    .font(.largeTitle)
-                                    .foregroundStyle(.secondary)
-                            @unknown default:
-                                EmptyView()
-                            }
-                        }
-                        .tag(idx)
-                    }
+                ZStack {
+                    Club360ScreenBackground()
+                    ProgressView()
+                        .tint(Club360Theme.tealDark)
                 }
-                .tabViewStyle(.page(indexDisplayMode: .automatic))
+            } else if model.images.isEmpty {
+                ZStack {
+                    Club360ScreenBackground()
+                    Text("No transformations yet. Admins can add photos with +.")
+                        .multilineTextAlignment(.center)
+                        .foregroundStyle(.secondary)
+                        .padding()
+                }
+            } else {
+                ZStack {
+                    LinearGradient(
+                        colors: [Color.black, Color(white: 0.15), Color.black],
+                        startPoint: .top,
+                        endPoint: .bottom
+                    )
+                    .ignoresSafeArea()
+
+                    TabView(selection: $currentIndex) {
+                        ForEach(Array(model.images.enumerated()), id: \.element.id) { idx, img in
+                            AsyncImage(url: img.url) { phase in
+                                switch phase {
+                                case .empty:
+                                    ProgressView().tint(Club360Theme.tealDark)
+                                case let .success(image):
+                                    image
+                                        .resizable()
+                                        .scaledToFit()
+                                        .padding()
+                                case .failure:
+                                    Image(systemName: "photo")
+                                        .font(.largeTitle)
+                                        .foregroundStyle(.secondary)
+                                @unknown default:
+                                    EmptyView()
+                                }
+                            }
+                            .tag(idx)
+                        }
+                    }
+                    .tabViewStyle(.page(indexDisplayMode: .automatic))
+                }
             }
         }
         .navigationTitle("Gallery")
         .navigationBarTitleDisplayMode(.inline)
+        .toolbarBackground(.ultraThinMaterial, for: .navigationBar)
         .toolbar {
             if auth.session?.user.isAdminRole == true {
                 ToolbarItem(placement: .primaryAction) {
                     PhotosPicker(selection: $pickerItem, matching: .images) {
                         Image(systemName: "plus.circle.fill")
                     }
-                    .tint(Club360Theme.burgundy)
+                    .tint(Club360Theme.tealDark)
                 }
             }
         }

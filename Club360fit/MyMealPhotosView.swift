@@ -1,12 +1,19 @@
+import Auth
 import Observation
 import PhotosUI
 import SwiftUI
+import UIKit
 
-/// Meal photo log list + upload — mirrors Android `MyMealPhotosScreen` (core flow).
+/// Meal photo log — **client**: upload & delete own rows; **coach/admin**: review & leave feedback (Android `MyMealPhotosScreen` vs `ClientMealPhotosScreen`).
 struct MyMealPhotosView: View {
     @Environment(ClientHomeViewModel.self) private var home: ClientHomeViewModel
+    @Environment(Club360AuthSession.self) private var auth: Club360AuthSession
     @State private var model = MyMealPhotosViewModel()
     @State private var showAdd = false
+
+    private var isCoachReviewing: Bool {
+        auth.session?.user.isAdminRole == true
+    }
 
     var body: some View {
         Group {
@@ -16,16 +23,19 @@ struct MyMealPhotosView: View {
                 ContentUnavailableView("No profile", systemImage: "person.crop.circle.badge.xmark")
             }
         }
-        .navigationTitle("Meal photos")
+        .navigationTitle(isCoachReviewing ? "Client meal photos" : "Meal photos")
         .navigationBarTitleDisplayMode(.inline)
+        .toolbarBackground(.ultraThinMaterial, for: .navigationBar)
         .toolbar {
-            ToolbarItem(placement: .primaryAction) {
-                Button {
-                    showAdd = true
-                } label: {
-                    Image(systemName: "plus.circle.fill")
+            if !isCoachReviewing {
+                ToolbarItem(placement: .primaryAction) {
+                    Button {
+                        showAdd = true
+                    } label: {
+                        Image(systemName: "plus.circle.fill")
+                    }
+                    .tint(Club360Theme.tealDark)
                 }
-                .tint(Club360Theme.burgundy)
             }
         }
         .sheet(isPresented: $showAdd) {
@@ -40,33 +50,58 @@ struct MyMealPhotosView: View {
 
     @ViewBuilder
     private func mealPhotosContent(clientId: String) -> some View {
-        ScrollView {
-            LazyVStack(alignment: .leading, spacing: 16) {
-                if model.isLoading {
-                    ProgressView("Loading photos…")
-                        .frame(maxWidth: .infinity)
-                        .padding()
-                }
+        ZStack {
+            Club360ScreenBackground()
 
-                if let err = model.errorMessage {
-                    Text(err)
-                        .font(.footnote)
-                        .foregroundStyle(.red)
-                }
+            ScrollView {
+                LazyVStack(alignment: .leading, spacing: 16) {
+                    if model.isLoading {
+                        ProgressView("Loading photos…")
+                            .tint(Club360Theme.tealDark)
+                            .frame(maxWidth: .infinity)
+                            .padding()
+                    }
 
-                if model.logs.isEmpty, !model.isLoading {
-                    Text("No meal photos yet. Tap + to add one.")
+                    if let err = model.errorMessage {
+                        Text(err)
+                            .font(.footnote)
+                            .foregroundStyle(.red)
+                            .padding()
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .club360Glass(cornerRadius: 22)
+                    }
+
+                    if isCoachReviewing, !model.isLoading {
+                        Text("Add quick feedback so your client knows if portions are too much, too little, or on track.")
+                            .font(.subheadline)
+                            .foregroundStyle(Club360Theme.cardSubtitle)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+
+                    if model.logs.isEmpty, !model.isLoading {
+                        Text(
+                            isCoachReviewing
+                                ? "No meal photos from this client yet."
+                                : "No meal photos yet. Tap + to add one so your coach can review portions and adjust your plan."
+                        )
                         .font(.body)
                         .foregroundStyle(.secondary)
-                }
+                    }
 
-                ForEach(model.logs, id: \.rowIdentity) { log in
-                    MealPhotoRow(log: log, clientId: clientId) {
-                        Task { await model.load(clientId: clientId) }
+                    ForEach(model.logs, id: \.rowIdentity) { log in
+                        MealPhotoLogCard(
+                            log: log,
+                            clientId: clientId,
+                            clientNameHeader: nil,
+                            isCoachReviewing: isCoachReviewing,
+                            onDataChanged: {
+                                Task { await model.load(clientId: clientId) }
+                            }
+                        )
                     }
                 }
+                .padding()
             }
-            .padding()
         }
         .task(id: clientId) {
             await model.load(clientId: clientId)
@@ -96,93 +131,7 @@ private final class MyMealPhotosViewModel {
     }
 }
 
-private struct MealPhotoRow: View {
-    let log: MealPhotoLogDTO
-    let clientId: String
-    var onDeleted: () -> Void
-
-    @State private var imageURL: URL?
-    @State private var confirmDelete = false
-    @State private var isDeleting = false
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            if let imageURL {
-                AsyncImage(url: imageURL) { phase in
-                    switch phase {
-                    case .empty:
-                        ProgressView()
-                            .frame(maxWidth: .infinity, minHeight: 160)
-                    case let .success(image):
-                        image
-                            .resizable()
-                            .scaledToFit()
-                            .frame(maxWidth: .infinity)
-                            .clipShape(RoundedRectangle(cornerRadius: 10))
-                    case .failure:
-                        Image(systemName: "photo")
-                            .font(.largeTitle)
-                            .foregroundStyle(.secondary)
-                            .frame(maxWidth: .infinity, minHeight: 120)
-                    @unknown default:
-                        EmptyView()
-                    }
-                }
-            }
-
-            Text(Club360DateFormats.displayDay(fromPostgresDay: log.logDate))
-                .font(.headline)
-                .foregroundStyle(Club360Theme.burgundy)
-
-            let note = (log.notes ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
-            if !note.isEmpty {
-                Text(note)
-                    .font(.subheadline)
-            }
-
-            if let fb = log.coachFeedback?.trimmingCharacters(in: .whitespacesAndNewlines), !fb.isEmpty {
-                Text("Coach: \(fb)")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-
-            if log.id != nil {
-                HStack {
-                    Spacer()
-                    Button("Delete", role: .destructive) {
-                        confirmDelete = true
-                    }
-                    .font(.caption)
-                    .disabled(isDeleting)
-                }
-            }
-        }
-        .padding()
-        .background(Color(.secondarySystemBackground))
-        .clipShape(RoundedRectangle(cornerRadius: 12))
-        .task(id: log.storagePath) {
-            imageURL = try? ClientDataService.mealPhotoPublicURL(storagePath: log.storagePath)
-        }
-        .confirmationDialog("Delete this meal photo?", isPresented: $confirmDelete, titleVisibility: .visible) {
-            Button("Delete", role: .destructive) {
-                Task { await deletePhoto() }
-            }
-            Button("Cancel", role: .cancel) {}
-        }
-    }
-
-    private func deletePhoto() async {
-        guard let id = log.id else { return }
-        isDeleting = true
-        defer { isDeleting = false }
-        do {
-            try await ClientDataService.deleteMealPhotoLog(clientId: clientId, logId: id)
-            onDeleted()
-        } catch {
-            // Surface via parent if needed
-        }
-    }
-}
+// MARK: - Add sheet (client)
 
 private struct AddMealPhotoSheet: View {
     let clientId: String
@@ -197,23 +146,42 @@ private struct AddMealPhotoSheet: View {
     @State private var pickedName = "photo.jpg"
     @State private var isUploading = false
     @State private var errorMessage: String?
+    @State private var showCamera = false
+
+    private var cameraAvailable: Bool {
+        UIImagePickerController.isSourceTypeAvailable(.camera)
+    }
 
     var body: some View {
         NavigationStack {
             Form {
                 Section("Photo") {
+                    Button {
+                        showCamera = true
+                    } label: {
+                        Label("Take picture", systemImage: "camera.fill")
+                    }
+                    .disabled(!cameraAvailable)
+                    .foregroundStyle(Club360Theme.tealDark)
+
                     PhotosPicker(selection: $selectedItem, matching: .images) {
                         Label("Choose from library", systemImage: "photo.on.rectangle")
                     }
-                    .tint(Club360Theme.burgundy)
+                    .tint(Club360Theme.tealDark)
                     .onChange(of: selectedItem) { _, new in
                         Task { await loadPhoto(from: new) }
+                    }
+
+                    if !cameraAvailable {
+                        Text("Camera isn’t available here (e.g. Simulator). Use “Choose from library” or run on a device.")
+                            .font(.caption)
+                            .foregroundStyle(Club360Theme.cardSubtitle)
                     }
 
                     if pickedData != nil {
                         Text("Image ready to upload")
                             .font(.caption)
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(Club360Theme.cardSubtitle)
                     }
                 }
                 Section("Details") {
@@ -229,8 +197,11 @@ private struct AddMealPhotoSheet: View {
                     }
                 }
             }
+            .tint(Club360Theme.tealDark)
+            .club360FormScreen()
             .navigationTitle("Add meal photo")
             .navigationBarTitleDisplayMode(.inline)
+            .toolbarBackground(.ultraThinMaterial, for: .navigationBar)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") {
@@ -243,10 +214,21 @@ private struct AddMealPhotoSheet: View {
                         ProgressView()
                     } else {
                         Button("Upload") { Task { await upload() } }
-                            .foregroundStyle(Club360Theme.burgundy)
+                            .foregroundStyle(Club360Theme.tealDark)
                             .disabled(pickedData == nil)
                     }
                 }
+            }
+            .fullScreenCover(isPresented: $showCamera) {
+                CameraImagePicker(
+                    onCapture: { data in
+                        pickedData = data
+                        pickedName = "camera.jpg"
+                        selectedItem = nil
+                    },
+                    onDismiss: { showCamera = false }
+                )
+                .ignoresSafeArea()
             }
         }
     }

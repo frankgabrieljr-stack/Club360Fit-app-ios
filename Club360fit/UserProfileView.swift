@@ -7,91 +7,105 @@ import Supabase
 /// Rich profile — mirrors Android `UserProfileScreen` (avatar, role, sign out).
 struct UserProfileView: View {
     @Environment(Club360AuthSession.self) private var auth: Club360AuthSession
-    @Environment(ClientHomeViewModel.self) private var home: ClientHomeViewModel
     @State private var pickerItem: PhotosPickerItem?
     @State private var isUploadingAvatar = false
     @State private var uploadError: String?
 
     var body: some View {
-        ScrollView {
-            VStack(spacing: 20) {
-                PhotosPicker(selection: $pickerItem, matching: .images) {
-                    ZStack(alignment: .bottomTrailing) {
-                        avatarView
-                            .frame(width: 120, height: 120)
-                            .clipShape(Circle())
-                            .overlay(Circle().stroke(Club360Theme.burgundy.opacity(0.3), lineWidth: 2))
+        ZStack {
+            Club360ScreenBackground()
 
-                        Circle()
-                            .fill(Club360Theme.burgundy)
-                            .frame(width: 36, height: 36)
-                            .overlay {
-                                if isUploadingAvatar {
-                                    ProgressView()
-                                        .tint(.white)
-                                        .scaleEffect(0.8)
-                                } else {
-                                    Image(systemName: "camera.fill")
-                                        .font(.caption)
-                                        .foregroundStyle(.white)
+            ScrollView {
+                VStack(spacing: 22) {
+                    PhotosPicker(selection: $pickerItem, matching: .images) {
+                        ZStack(alignment: .bottomTrailing) {
+                            avatarView
+                                .frame(width: 120, height: 120)
+                                .clipShape(Circle())
+                                .overlay(
+                                    Circle()
+                                        .stroke(
+                                            LinearGradient(
+                                                colors: [Club360Theme.teal.opacity(0.8), Club360Theme.purpleLight.opacity(0.6)],
+                                                startPoint: .topLeading,
+                                                endPoint: .bottomTrailing
+                                            ),
+                                            lineWidth: 2.5
+                                        )
+                                )
+
+                            Circle()
+                                .fill(Club360Theme.primaryButtonGradient)
+                                .frame(width: 36, height: 36)
+                                .overlay {
+                                    if isUploadingAvatar {
+                                        ProgressView()
+                                            .tint(.white)
+                                            .scaleEffect(0.8)
+                                    } else {
+                                        Image(systemName: "camera.fill")
+                                            .font(.caption)
+                                            .foregroundStyle(.white)
+                                    }
                                 }
-                            }
+                                .shadow(color: Club360Theme.purple.opacity(0.35), radius: 6, y: 3)
+                        }
                     }
-                }
-                .disabled(isUploadingAvatar)
-                .onChange(of: pickerItem) { _, new in
-                    Task { await uploadAvatar(from: new) }
-                }
+                    .disabled(isUploadingAvatar)
+                    .onChange(of: pickerItem) { _, new in
+                        Task { await uploadAvatar(from: new) }
+                    }
 
-                Text("Change photo")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                    Text("Change photo")
+                        .font(.caption.weight(.medium))
+                        .foregroundStyle(Club360Theme.tealDark.opacity(0.75))
 
-                Text(displayName)
-                    .font(.title2.bold())
-                    .foregroundStyle(Club360Theme.burgundy)
+                    Text(displayName)
+                        .font(.title2.bold())
+                        .foregroundStyle(Club360Theme.cardTitle)
 
-                if let email = auth.session?.user.email {
-                    Text(email)
-                        .font(.body)
-                }
+                    if let email = auth.session?.user.email {
+                        Text(email)
+                            .font(.body)
+                            .foregroundStyle(.secondary)
+                    }
 
-                HStack {
-                    Text("Status")
-                    Spacer()
-                    Text(roleLabel)
-                        .fontWeight(.medium)
-                        .foregroundStyle(Club360Theme.burgundy)
+                    HStack {
+                        Text("Status")
+                            .foregroundStyle(.secondary)
+                        Spacer()
+                        Text(roleLabel)
+                            .fontWeight(.semibold)
+                            .foregroundStyle(Club360Theme.tealDark)
+                    }
+                    .padding(16)
+                    .club360Glass()
+
+                    if let uploadError {
+                        Text(uploadError)
+                            .font(.footnote)
+                            .foregroundStyle(.red)
+                    }
+
+                    NavigationLink {
+                        ChangePasswordView()
+                    } label: {
+                        Text("Change password")
+                    }
+                    .buttonStyle(Club360PrimaryGradientButtonStyle())
+
+                    Button("Sign out", role: .destructive) {
+                        Task { await auth.signOut() }
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.top, 4)
                 }
                 .padding()
-                .background(Color(.secondarySystemBackground))
-                .clipShape(RoundedRectangle(cornerRadius: 12))
-
-                if let cid = home.clientId {
-                    LabeledContent("Client ID", value: cid)
-                }
-
-                if let uploadError {
-                    Text(uploadError)
-                        .font(.footnote)
-                        .foregroundStyle(.red)
-                }
-
-                NavigationLink("Change password") {
-                    ChangePasswordView()
-                }
-                .buttonStyle(.borderedProminent)
-                .tint(Club360Theme.burgundy)
-
-                Button("Sign out", role: .destructive) {
-                    Task { await auth.signOut() }
-                }
-                .frame(maxWidth: .infinity)
             }
-            .padding()
         }
         .navigationTitle("Profile")
         .navigationBarTitleDisplayMode(.inline)
+        .toolbarBackground(.ultraThinMaterial, for: .navigationBar)
     }
 
     private var avatarView: some View {
@@ -106,17 +120,23 @@ struct UserProfileView: View {
                     default:
                         Image(systemName: "person.fill")
                             .font(.system(size: 48))
-                            .foregroundStyle(Club360Theme.burgundy.opacity(0.5))
+                            .foregroundStyle(Club360Theme.teal.opacity(0.45))
                     }
                 }
             } else {
                 Image(systemName: "person.fill")
                     .font(.system(size: 48))
-                    .foregroundStyle(Club360Theme.burgundy.opacity(0.5))
+                    .foregroundStyle(Club360Theme.teal.opacity(0.45))
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(Club360Theme.burgundy.opacity(0.12))
+        .background(
+            LinearGradient(
+                colors: [Club360Theme.mint.opacity(0.5), Club360Theme.teal.opacity(0.2)],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+        )
     }
 
     private var avatarURLString: String? {

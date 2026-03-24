@@ -24,6 +24,7 @@ struct MyPaymentsView: View {
         }
         .navigationTitle("Payments")
         .navigationBarTitleDisplayMode(.large)
+        .toolbarBackground(.ultraThinMaterial, for: .navigationBar)
         .task(id: home.clientId) {
             guard let cid = home.clientId else { return }
             await model.load(clientId: cid)
@@ -47,92 +48,102 @@ struct MyPaymentsView: View {
     }
 
     private var paymentsScroll: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 14) {
-                if model.isLoading {
-                    ProgressView()
-                        .frame(maxWidth: .infinity)
-                }
-                if let err = model.errorMessage {
-                    Text(err).font(.footnote).foregroundStyle(.red)
-                }
+        ZStack {
+            Club360ScreenBackground()
 
-                if model.settings == nil, !model.isLoading {
-                    Text("Your coach hasn’t set up payment info yet.")
-                        .foregroundStyle(.secondary)
-                }
-
-                if let s = model.settings {
-                    upcomingDueCard(s)
-                    if let note = s.note?.trimmingCharacters(in: .whitespacesAndNewlines), !note.isEmpty {
-                        Text(note)
+            ScrollView {
+                VStack(alignment: .leading, spacing: 16) {
+                    if model.isLoading {
+                        ProgressView()
+                            .tint(Club360Theme.tealDark)
+                            .frame(maxWidth: .infinity)
+                    }
+                    if let err = model.errorMessage {
+                        Text(err)
+                            .font(.footnote)
+                            .foregroundStyle(.red)
                             .padding()
                             .frame(maxWidth: .infinity, alignment: .leading)
-                            .background(Color(.secondarySystemBackground))
-                            .clipShape(RoundedRectangle(cornerRadius: 10))
+                            .club360Glass(cornerRadius: 22)
                     }
 
-                    if let url = s.venmoUrl?.trimmingCharacters(in: .whitespacesAndNewlines), !url.isEmpty {
-                        Text("Venmo")
-                            .font(.subheadline.weight(.semibold))
-                            .foregroundStyle(Club360Theme.burgundy)
-                        if let u = URL(string: url) {
-                            Link(destination: u) {
-                                Label("Open Venmo", systemImage: "arrow.up.right.square")
-                                    .frame(maxWidth: .infinity)
-                            }
-                            .buttonStyle(.borderedProminent)
-                            .tint(Club360Theme.burgundy)
+                    if model.settings == nil, !model.isLoading {
+                        Text("Your coach hasn’t set up payment info yet.")
+                            .foregroundStyle(.secondary)
+                    }
+
+                    if let s = model.settings {
+                        upcomingDueCard(s)
+                        if let note = s.note?.trimmingCharacters(in: .whitespacesAndNewlines), !note.isEmpty {
+                            Text(note)
+                                .padding(16)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .club360Glass(cornerRadius: 22)
                         }
-                        QRCodeImageView(content: url)
-                            .frame(maxHeight: 220)
-                            .padding(.vertical, 8)
-                    }
 
-                    if s.zelleEmail?.isEmpty == false || s.zellePhone?.isEmpty == false {
-                        Text("Zelle")
-                            .font(.subheadline.weight(.semibold))
-                            .foregroundStyle(Club360Theme.burgundy)
-                        if let em = s.zelleEmail?.trimmingCharacters(in: .whitespacesAndNewlines), !em.isEmpty {
-                            copyRow(label: "Email", value: em)
-                            QRCodeImageView(content: em)
+                        if let url = s.venmoUrl?.trimmingCharacters(in: .whitespacesAndNewlines), !url.isEmpty {
+                            Text("Venmo")
+                                .font(.subheadline.weight(.bold))
+                                .foregroundStyle(Club360Theme.cardTitle)
+                            if let u = URL(string: url) {
+                                Link(destination: u) {
+                                    Label("Open Venmo", systemImage: "arrow.up.right.square")
+                                        .font(.headline)
+                                        .foregroundStyle(.white)
+                                        .frame(maxWidth: .infinity)
+                                        .padding(.vertical, 14)
+                                        .background(Club360Theme.primaryButtonGradient, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                                        .shadow(color: Club360Theme.purple.opacity(0.3), radius: 10, y: 5)
+                                }
+                            }
+                            QRCodeImageView(content: url)
                                 .frame(maxHeight: 220)
                                 .padding(.vertical, 8)
                         }
-                        if let ph = s.zellePhone?.trimmingCharacters(in: .whitespacesAndNewlines), !ph.isEmpty {
-                            copyRow(label: "Phone", value: ph)
+
+                        if s.zelleEmail?.isEmpty == false || s.zellePhone?.isEmpty == false {
+                            Text("Zelle")
+                                .font(.subheadline.weight(.bold))
+                                .foregroundStyle(Club360Theme.cardTitle)
+                            if let em = s.zelleEmail?.trimmingCharacters(in: .whitespacesAndNewlines), !em.isEmpty {
+                                copyRow(label: "Email", value: em)
+                                QRCodeImageView(content: em)
+                                    .frame(maxHeight: 220)
+                                    .padding(.vertical, 8)
+                            }
+                            if let ph = s.zellePhone?.trimmingCharacters(in: .whitespacesAndNewlines), !ph.isEmpty {
+                                copyRow(label: "Phone", value: ph)
+                            }
                         }
-                    }
 
-                    Button {
-                        showConfirm = true
-                    } label: {
-                        Text("I paid")
-                            .frame(maxWidth: .infinity)
-                    }
-                    .buttonStyle(.borderedProminent)
-                    .tint(Club360Theme.burgundy)
-
-                    if !model.confirmations.isEmpty {
-                        Text("Your confirmations")
-                            .font(.headline)
-                            .foregroundStyle(Club360Theme.burgundy)
-                        ForEach(model.confirmations) { c in
-                            confirmationCard(c)
+                        Button {
+                            showConfirm = true
+                        } label: {
+                            Text("I paid")
                         }
-                    }
+                        .buttonStyle(Club360PrimaryGradientButtonStyle())
 
-                    if !model.records.isEmpty {
-                        Text("History")
-                            .font(.headline)
-                            .foregroundStyle(Club360Theme.burgundy)
-                        ForEach(model.records) { r in
-                            recordCard(r)
+                        if !model.confirmations.isEmpty {
+                            Text("Your confirmations")
+                                .font(.headline.weight(.semibold))
+                                .foregroundStyle(Club360Theme.cardTitle)
+                            ForEach(model.confirmations) { c in
+                                confirmationCard(c)
+                            }
+                        }
+
+                        if !model.records.isEmpty {
+                            Text("History")
+                                .font(.headline.weight(.semibold))
+                                .foregroundStyle(Club360Theme.cardTitle)
+                            ForEach(model.records) { r in
+                                recordCard(r)
+                            }
                         }
                     }
                 }
+                .padding()
             }
-            .padding()
         }
     }
 
@@ -146,8 +157,8 @@ struct MyPaymentsView: View {
             if hasDue {
                 VStack(alignment: .leading, spacing: 6) {
                     Text("Upcoming due")
-                        .font(.headline)
-                        .foregroundStyle(Club360Theme.burgundy)
+                        .font(.headline.weight(.semibold))
+                        .foregroundStyle(Club360Theme.cardTitle)
                     if let d = s.nextDueDate {
                         Text("Due: \(Club360DateFormats.displayDay(fromPostgresDay: d))")
                     }
@@ -158,10 +169,14 @@ struct MyPaymentsView: View {
                         Text(n).font(.caption).foregroundStyle(.secondary)
                     }
                 }
-                .padding()
+                .padding(18)
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .background(Club360Theme.burgundy.opacity(0.12))
-                .clipShape(RoundedRectangle(cornerRadius: 12))
+                .background(Club360Theme.sessionCardGradient, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 20, style: .continuous)
+                        .stroke(Color.white.opacity(0.5), lineWidth: 1)
+                )
+                .shadow(color: Club360Theme.peachDeep.opacity(0.25), radius: 14, y: 8)
             }
         }
     }
@@ -178,7 +193,7 @@ struct MyPaymentsView: View {
             } label: {
                 Image(systemName: "doc.on.doc")
             }
-            .tint(Club360Theme.burgundy)
+            .tint(Club360Theme.tealDark)
         }
     }
 
@@ -188,24 +203,26 @@ struct MyPaymentsView: View {
             HStack {
                 Text(c.amountLabel ?? "Payment")
                     .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(Club360Theme.burgundy)
+                    .foregroundStyle(Club360Theme.cardTitle)
                 Spacer()
                 if let t = c.submittedAt {
                     Text(Club360Formatting.formatPaymentInstant(t))
                         .font(.caption2)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(Club360Theme.cardSubtitle)
                 }
             }
             Text("\(statusLabel) · \(c.method.capitalized)")
                 .font(.caption)
+                .foregroundStyle(Club360Theme.cardTitle)
             if !c.note.isEmpty {
-                Text(c.note).font(.caption)
+                Text(c.note)
+                    .font(.caption)
+                    .foregroundStyle(Club360Theme.cardSubtitle)
             }
         }
-        .padding()
+        .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color(.secondarySystemBackground))
-        .clipShape(RoundedRectangle(cornerRadius: 10))
+        .club360Glass(cornerRadius: 28)
     }
 
     private func confirmationStatusLabel(_ status: String) -> String {
@@ -222,21 +239,24 @@ struct MyPaymentsView: View {
             HStack {
                 Text(r.amountLabel ?? "Payment")
                     .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(Club360Theme.burgundy)
+                    .foregroundStyle(Club360Theme.cardTitle)
                 Spacer()
                 Text(Club360Formatting.formatPaymentInstant(r.paidAt))
                     .font(.caption2)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(Club360Theme.cardSubtitle)
             }
-            Text(r.method.capitalized).font(.caption)
+            Text(r.method.capitalized)
+                .font(.caption)
+                .foregroundStyle(Club360Theme.cardTitle)
             if let n = r.note, !n.isEmpty {
-                Text(n).font(.caption)
+                Text(n)
+                    .font(.caption)
+                    .foregroundStyle(Club360Theme.cardSubtitle)
             }
         }
-        .padding()
+        .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color(.secondarySystemBackground))
-        .clipShape(RoundedRectangle(cornerRadius: 10))
+        .club360Glass(cornerRadius: 28)
     }
 }
 
@@ -300,8 +320,11 @@ private struct ConfirmPaymentSheet: View {
                     }
                 }
             }
+            .tint(Club360Theme.tealDark)
+            .club360FormScreen()
             .navigationTitle("Confirm payment")
             .navigationBarTitleDisplayMode(.inline)
+            .toolbarBackground(.ultraThinMaterial, for: .navigationBar)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") { dismiss() }
@@ -309,9 +332,10 @@ private struct ConfirmPaymentSheet: View {
                 ToolbarItem(placement: .confirmationAction) {
                     if isSubmitting {
                         ProgressView()
+                            .tint(Club360Theme.tealDark)
                     } else {
                         Button("Submit") { Task { await submit() } }
-                            .foregroundStyle(Club360Theme.burgundy)
+                            .foregroundStyle(Club360Theme.tealDark)
                     }
                 }
             }

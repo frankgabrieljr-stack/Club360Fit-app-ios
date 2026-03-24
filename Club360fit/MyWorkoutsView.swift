@@ -26,6 +26,7 @@ struct MyWorkoutsView: View {
         }
         .navigationTitle("Workouts")
         .navigationBarTitleDisplayMode(.large)
+        .toolbarBackground(.ultraThinMaterial, for: .navigationBar)
         .task(id: home.clientId) {
             guard let cid = home.clientId else { return }
             await model.load(clientId: cid)
@@ -38,75 +39,89 @@ struct MyWorkoutsView: View {
 
     @ViewBuilder
     private var workoutsContent: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 16) {
-                if model.isLoading {
-                    ProgressView("Loading plans…")
-                        .frame(maxWidth: .infinity)
-                        .padding()
-                }
+        ZStack {
+            Club360ScreenBackground()
 
-                if let err = model.errorMessage {
-                    Text(err)
-                        .font(.footnote)
-                        .foregroundStyle(.red)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                }
-
-                Text("This week")
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(Club360Theme.burgundy)
-
-                let pct = model.weekExpected <= 0
-                    ? 0.0
-                    : min(1.0, Double(model.weekLogged) / Double(model.weekExpected))
-                ProgressView(value: pct)
-                    .tint(Club360Theme.burgundy)
-                Text("\(model.weekLogged) / \(model.weekExpected) sessions · \(Int((pct * 100).rounded()))%")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-
-                Button {
-                    Task {
-                        guard let cid = home.clientId else { return }
-                        await model.logToday(clientId: cid)
+            ScrollView {
+                VStack(alignment: .leading, spacing: 20) {
+                    if model.isLoading {
+                        ProgressView("Loading plans…")
+                            .tint(Club360Theme.tealDark)
+                            .frame(maxWidth: .infinity)
+                            .padding()
                     }
-                } label: {
-                    Text(model.isLogging ? "Saving…" : "Log a workout today")
-                        .frame(maxWidth: .infinity)
-                }
-                .buttonStyle(.borderedProminent)
-                .tint(Club360Theme.burgundy)
-                .disabled(model.isLogging || home.clientId == nil)
 
-                if let toast = model.toast {
-                    Text(toast)
-                        .font(.footnote)
-                        .foregroundStyle(Club360Theme.burgundy)
-                }
+                    if let err = model.errorMessage {
+                        Text(err)
+                            .font(.footnote)
+                            .foregroundStyle(.red)
+                            .padding()
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .club360Glass(cornerRadius: 22)
+                    }
 
-                Divider()
+                    let pct = model.weekExpected <= 0
+                        ? 0.0
+                        : min(1.0, Double(model.weekLogged) / Double(model.weekExpected))
 
-                if model.plans.isEmpty, !model.isLoading {
-                    Text("No workout plans assigned yet.")
-                        .font(.body)
-                        .foregroundStyle(.secondary)
-                } else {
-                    ForEach(model.plans, id: \.rowIdentity) { plan in
-                        VStack(alignment: .leading, spacing: 8) {
-                            Text("Week of \(Club360DateFormats.displayDay(fromPostgresDay: plan.weekStart)) – \(plan.title)")
-                                .font(.headline)
-                                .foregroundStyle(Club360Theme.burgundy)
-                            Text(plan.planText)
-                                .font(.body)
-                                .foregroundStyle(.primary)
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text("This week")
+                            .font(.subheadline.weight(.bold))
+                            .foregroundStyle(Club360Theme.cardTitle)
+                            .textCase(.uppercase)
+                            .tracking(0.6)
+
+                        Club360SegmentedProgressBar(value: pct, segments: 4)
+
+                        Text("\(model.weekLogged) / \(model.weekExpected) sessions · \(Int((pct * 100).rounded()))%")
+                            .font(.caption.weight(.medium))
+                            .foregroundStyle(Club360Theme.cardSubtitle)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(18)
+                    .club360Glass(cornerRadius: 28)
+
+                    Button {
+                        Task {
+                            guard let cid = home.clientId else { return }
+                            await model.logToday(clientId: cid)
                         }
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding(.bottom, 8)
+                    } label: {
+                        Text(model.isLogging ? "Saving…" : "Log a workout today")
+                    }
+                    .buttonStyle(Club360PrimaryGradientButtonStyle())
+                    .disabled(model.isLogging || home.clientId == nil)
+                    .opacity(model.isLogging ? 0.7 : 1)
+
+                    if let toast = model.toast {
+                        Text(toast)
+                            .font(.footnote.weight(.medium))
+                            .foregroundStyle(Club360Theme.cardSubtitle)
+                    }
+
+                    if model.plans.isEmpty, !model.isLoading {
+                        Text("No workout plans assigned yet.")
+                            .font(.body)
+                            .foregroundStyle(Club360Theme.cardSubtitle)
+                            .padding(.top, 8)
+                    } else {
+                        ForEach(model.plans, id: \.rowIdentity) { plan in
+                            VStack(alignment: .leading, spacing: 10) {
+                                Text("Week of \(Club360DateFormats.displayDay(fromPostgresDay: plan.weekStart)) – \(plan.title)")
+                                    .font(.headline.weight(.semibold))
+                                    .foregroundStyle(Club360Theme.cardTitle)
+                                Text(plan.planText)
+                                    .font(.body)
+                                    .foregroundStyle(Club360Theme.cardTitle)
+                            }
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(16)
+                            .club360Glass(cornerRadius: 28)
+                        }
                     }
                 }
+                .padding()
             }
-            .padding()
         }
     }
 }

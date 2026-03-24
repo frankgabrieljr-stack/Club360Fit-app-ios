@@ -53,18 +53,23 @@ struct ChangePasswordView: View {
                     if isSaving {
                         HStack {
                             ProgressView()
+                                .tint(.white)
                             Text("Updating…")
                         }
                     } else {
                         Text("Update password")
-                            .frame(maxWidth: .infinity)
                     }
                 }
+                .buttonStyle(Club360PrimaryGradientButtonStyle())
+                .listRowBackground(Color.clear)
                 .disabled(isSaving || !canSave)
             }
         }
+        .tint(Club360Theme.tealDark)
+        .club360FormScreen()
         .navigationTitle("Change password")
         .navigationBarTitleDisplayMode(.inline)
+        .toolbarBackground(.ultraThinMaterial, for: .navigationBar)
     }
 
     private var canSave: Bool {

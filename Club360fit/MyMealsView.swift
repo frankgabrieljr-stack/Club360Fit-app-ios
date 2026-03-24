@@ -26,6 +26,7 @@ struct MyMealsView: View {
         }
         .navigationTitle("Meals")
         .navigationBarTitleDisplayMode(.large)
+        .toolbarBackground(.ultraThinMaterial, for: .navigationBar)
         .task(id: home.clientId) {
             guard let cid = home.clientId else { return }
             await model.load(clientId: cid)
@@ -38,69 +39,85 @@ struct MyMealsView: View {
 
     @ViewBuilder
     private var mealsContent: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 16) {
-                if model.isLoading {
-                    ProgressView("Loading meal plans…")
-                        .frame(maxWidth: .infinity)
-                        .padding()
-                }
+        ZStack {
+            Club360ScreenBackground()
 
-                if let err = model.errorMessage {
-                    Text(err)
-                        .font(.footnote)
-                        .foregroundStyle(.red)
-                }
-
-                NavigationLink {
-                    MyMealPhotosView()
-                } label: {
-                    HStack(alignment: .center, spacing: 12) {
-                        Image(systemName: "camera.fill")
-                            .font(.title2)
-                            .foregroundStyle(Club360Theme.burgundy)
-                            .frame(width: 36)
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text("Meal photos")
-                                .font(.headline)
-                                .foregroundStyle(Club360Theme.burgundy)
-                            Text("Log meals for your coach (camera or gallery)")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                        }
-                        Spacer(minLength: 0)
-                        Image(systemName: "chevron.right")
-                            .font(.caption.weight(.semibold))
-                            .foregroundStyle(.tertiary)
+            ScrollView {
+                VStack(alignment: .leading, spacing: 20) {
+                    if model.isLoading {
+                        ProgressView("Loading meal plans…")
+                            .tint(Club360Theme.tealDark)
+                            .frame(maxWidth: .infinity)
+                            .padding()
                     }
-                    .padding()
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(Color(.secondarySystemBackground))
-                    .clipShape(RoundedRectangle(cornerRadius: 12))
-                }
-                .buttonStyle(.plain)
 
-                Divider()
+                    if let err = model.errorMessage {
+                        Text(err)
+                            .font(.footnote)
+                            .foregroundStyle(.red)
+                            .padding()
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .club360Glass(cornerRadius: 22)
+                    }
 
-                if model.plans.isEmpty, !model.isLoading {
-                    Text("No meal plans assigned yet.")
-                        .font(.body)
-                        .foregroundStyle(.secondary)
-                } else {
-                    ForEach(model.plans, id: \.rowIdentity) { plan in
-                        VStack(alignment: .leading, spacing: 8) {
-                            Text("Week of \(Club360DateFormats.displayDay(fromPostgresDay: plan.weekStart)) – \(plan.title)")
-                                .font(.headline)
-                                .foregroundStyle(Club360Theme.burgundy)
-                            Text(plan.planText)
-                                .font(.body)
+                    NavigationLink {
+                        MyMealPhotosView()
+                            .environment(home)
+                    } label: {
+                        HStack(alignment: .center, spacing: 14) {
+                            ZStack {
+                                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                                    .fill(Club360Theme.teal.opacity(0.4))
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: 18, style: .continuous)
+                                            .stroke(Color.black.opacity(0.08), lineWidth: 1)
+                                    )
+                                    .frame(width: 52, height: 52)
+                                Image(systemName: "camera.fill")
+                                    .font(.title2)
+                                    .foregroundStyle(Club360Theme.tealDark)
+                            }
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("Meal photos")
+                                    .font(.headline.weight(.semibold))
+                                    .foregroundStyle(Club360Theme.cardTitle)
+                                Text("Log meals for your coach (camera or gallery)")
+                                    .font(.caption)
+                                    .foregroundStyle(Club360Theme.cardSubtitle)
+                            }
+                            Spacer(minLength: 0)
+                            Image(systemName: "chevron.right")
+                                .font(.caption.weight(.semibold))
+                                .foregroundStyle(Club360Theme.cardSubtitle)
                         }
+                        .padding(16)
                         .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding(.bottom, 8)
+                        .club360Glass(cornerRadius: 28)
+                    }
+                    .buttonStyle(.plain)
+
+                    if model.plans.isEmpty, !model.isLoading {
+                        Text("No meal plans assigned yet.")
+                            .font(.body)
+                            .foregroundStyle(.secondary)
+                    } else {
+                        ForEach(model.plans, id: \.rowIdentity) { plan in
+                            VStack(alignment: .leading, spacing: 10) {
+                                Text("Week of \(Club360DateFormats.displayDay(fromPostgresDay: plan.weekStart)) – \(plan.title)")
+                                    .font(.headline.weight(.semibold))
+                                    .foregroundStyle(Club360Theme.cardTitle)
+                                Text(plan.planText)
+                                    .font(.body)
+                                    .foregroundStyle(Club360Theme.cardTitle)
+                            }
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(16)
+                            .club360Glass(cornerRadius: 28)
+                        }
                     }
                 }
+                .padding()
             }
-            .padding()
         }
     }
 }
