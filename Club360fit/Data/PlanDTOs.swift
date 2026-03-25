@@ -104,3 +104,61 @@ struct ProgressCheckInInsert: Encodable, Sendable {
         case mealsFollowed = "meals_followed"
     }
 }
+
+// MARK: - Coach writes (`workout_plans` / `meal_plans` — coach RLS)
+
+struct WorkoutPlanInsert: Encodable, Sendable {
+    let clientId: String
+    let title: String
+    let weekStart: String
+    let planText: String
+    let expectedSessions: Int
+
+    enum CodingKeys: String, CodingKey {
+        case clientId = "client_id"
+        case title
+        case weekStart = "week_start"
+        case planText = "plan_text"
+        case expectedSessions = "expected_sessions"
+    }
+}
+
+struct WorkoutPlanUpdatePayload: Encodable, Sendable {
+    let title: String
+    let weekStart: String
+    let planText: String
+    let expectedSessions: Int
+
+    enum CodingKeys: String, CodingKey {
+        case title
+        case weekStart = "week_start"
+        case planText = "plan_text"
+        case expectedSessions = "expected_sessions"
+    }
+}
+
+struct MealPlanInsert: Encodable, Sendable {
+    let clientId: String
+    let title: String
+    let weekStart: String
+    let planText: String
+
+    enum CodingKeys: String, CodingKey {
+        case clientId = "client_id"
+        case title
+        case weekStart = "week_start"
+        case planText = "plan_text"
+    }
+}
+
+struct MealPlanUpdatePayload: Encodable, Sendable {
+    let title: String
+    let weekStart: String
+    let planText: String
+
+    enum CodingKeys: String, CodingKey {
+        case title
+        case weekStart = "week_start"
+        case planText = "plan_text"
+    }
+}

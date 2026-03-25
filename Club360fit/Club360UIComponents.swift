@@ -1,6 +1,6 @@
 import SwiftUI
 
-// MARK: - Screen background (soft mint / teal gradient)
+// MARK: - Screen background (burgundy & cream gradient)
 
 struct Club360ScreenBackground: View {
     var body: some View {
@@ -9,7 +9,7 @@ struct Club360ScreenBackground: View {
     }
 }
 
-// MARK: - Glass card (elevated: white base + material + visible border — reads on mint gradients)
+// MARK: - Glass card (elevated: cream base + material + visible border)
 
 struct GlassCardModifier: ViewModifier {
     var cornerRadius: CGFloat = 26
@@ -54,7 +54,7 @@ extension View {
     }
 }
 
-// MARK: - Primary CTA (purple gradient — matches redesign)
+// MARK: - Primary CTA (burgundy gradient)
 
 struct Club360PrimaryGradientButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
@@ -68,7 +68,7 @@ struct Club360PrimaryGradientButtonStyle: ButtonStyle {
                     .opacity(configuration.isPressed ? 0.88 : 1)
             )
             .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
-            .shadow(color: Club360Theme.purple.opacity(0.38), radius: 12, x: 0, y: 6)
+            .shadow(color: Club360Theme.burgundy.opacity(0.35), radius: 12, x: 0, y: 6)
     }
 }
 
@@ -80,10 +80,10 @@ struct Club360SegmentedProgressBar: View {
 
     private var segmentColors: [Color] {
         [
-            Club360Theme.mintDeep,
-            Club360Theme.teal,
-            Club360Theme.tealDark,
-            Club360Theme.purpleLight,
+            Club360Theme.creamWarm,
+            Club360Theme.taupe,
+            Club360Theme.burgundyLight,
+            Club360Theme.burgundy,
         ]
     }
 
@@ -115,7 +115,7 @@ struct Club360HomeTile: View {
     let title: String
     let subtitle: String
     let systemImage: String
-    var accent: Color = Club360Theme.tealDark
+    var accent: Color = Club360Theme.burgundy
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {

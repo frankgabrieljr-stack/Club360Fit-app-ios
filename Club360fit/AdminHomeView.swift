@@ -4,6 +4,11 @@ import SwiftUI
 struct AdminHomeView: View {
     var body: some View {
         TabView {
+            NavigationStack {
+                CoachMainHubView()
+            }
+            .tabItem { Label("Hub", systemImage: "square.grid.2x2.fill") }
+
             AdminClientsTab()
                 .tabItem { Label("Clients", systemImage: "person.3.fill") }
 
@@ -232,6 +237,23 @@ struct AdminClientHubView: View {
                         }
                     }
                     .padding(.top, 4)
+
+                    VStack(alignment: .leading, spacing: 10) {
+                        HStack(alignment: .center, spacing: 10) {
+                            Image(systemName: "square.grid.2x2.fill")
+                                .foregroundStyle(Club360Theme.tealDark)
+                            Text("Assignments")
+                                .font(.subheadline.weight(.bold))
+                                .foregroundStyle(Club360Theme.cardTitle)
+                        }
+                        Text("Create and assign workout plans, meal plans, and sessions from the Hub tab. Use the tiles below to review what’s assigned for \(homeModel.welcomeName).")
+                            .font(.footnote)
+                            .foregroundStyle(Club360Theme.cardSubtitle)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    .padding(18)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .club360Glass(cornerRadius: 28)
 
                     Text("Tools")
                         .font(.subheadline.weight(.bold))

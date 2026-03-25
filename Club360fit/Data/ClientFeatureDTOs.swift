@@ -38,6 +38,37 @@ struct ScheduleEventDTO: Decodable, Sendable, Identifiable {
     var id: String { rowId ?? "\(date)-\(time)-\(title)" }
 }
 
+/// Insert for `schedule_events` (coach `user_id` + optional `client_id`).
+struct ScheduleEventInsert: Encodable, Sendable {
+    let userId: String
+    let title: String
+    let date: String
+    let time: String
+    let notes: String
+    let clientId: String
+    let isCompleted: Bool
+
+    enum CodingKeys: String, CodingKey {
+        case userId = "user_id"
+        case title, date, time, notes
+        case clientId = "client_id"
+        case isCompleted = "is_completed"
+    }
+}
+
+struct ScheduleEventUpdatePayload: Encodable, Sendable {
+    let title: String
+    let date: String
+    let time: String
+    let notes: String
+    let isCompleted: Bool
+
+    enum CodingKeys: String, CodingKey {
+        case title, date, time, notes
+        case isCompleted = "is_completed"
+    }
+}
+
 // MARK: - Daily habits (`daily_habit_logs`)
 
 struct DailyHabitLogDTO: Decodable, Sendable, Identifiable {
