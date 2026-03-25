@@ -237,21 +237,50 @@ struct PaymentConfirmationInsert: Encodable, Sendable {
 struct ClientNotificationDTO: Decodable, Sendable, Identifiable {
     let rowId: String?
     let clientId: String
+    let kind: String?
     let title: String
     let body: String
+    let refType: String?
+    let refId: String?
+    let visibleToClient: Bool
     let readAt: String?
     let createdAt: String?
 
     enum CodingKeys: String, CodingKey {
         case rowId = "id"
         case clientId = "client_id"
+        case kind
         case title
         case body
+        case refType = "ref_type"
+        case refId = "ref_id"
+        case visibleToClient = "visible_to_client"
         case readAt = "read_at"
         case createdAt = "created_at"
     }
 
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        rowId = try c.decodeIfPresent(String.self, forKey: .rowId)
+        clientId = try c.decode(String.self, forKey: .clientId)
+        kind = try c.decodeIfPresent(String.self, forKey: .kind)
+        title = try c.decodeIfPresent(String.self, forKey: .title) ?? ""
+        body = try c.decodeIfPresent(String.self, forKey: .body) ?? ""
+        refType = try c.decodeIfPresent(String.self, forKey: .refType)
+        refId = try c.decodeIfPresent(String.self, forKey: .refId)
+        visibleToClient = try c.decodeIfPresent(Bool.self, forKey: .visibleToClient) ?? true
+        readAt = try c.decodeIfPresent(String.self, forKey: .readAt)
+        createdAt = try c.decodeIfPresent(String.self, forKey: .createdAt)
+    }
+
     var id: String { rowId ?? "\(clientId)-\(createdAt ?? UUID().uuidString)" }
+
+    /// Used for deep links when `kind` is empty (older rows).
+    var routingKind: String {
+        let k = (kind ?? "").trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        if !k.isEmpty { return k }
+        return (refType ?? "").trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+    }
 }
 
 struct NotificationReadAtPatch: Encodable, Sendable {
@@ -264,12 +293,40 @@ struct ClientNotificationInsert: Encodable, Sendable {
     let kind: String
     let title: String
     let body: String
+    let refType: String?
+    let refId: String?
+    let dedupeKey: String?
+    let visibleToClient: Bool
 
     enum CodingKeys: String, CodingKey {
         case clientId = "client_id"
         case kind
         case title
         case body
+        case refType = "ref_type"
+        case refId = "ref_id"
+        case dedupeKey = "dedupe_key"
+        case visibleToClient = "visible_to_client"
+    }
+
+    init(
+        clientId: String,
+        kind: String,
+        title: String,
+        body: String,
+        refType: String? = nil,
+        refId: String? = nil,
+        dedupeKey: String? = nil,
+        visibleToClient: Bool = true
+    ) {
+        self.clientId = clientId
+        self.kind = kind
+        self.title = title
+        self.body = body
+        self.refType = refType
+        self.refId = refId
+        self.dedupeKey = dedupeKey
+        self.visibleToClient = visibleToClient
     }
 }
 

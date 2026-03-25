@@ -4,6 +4,8 @@ import SwiftUI
 /// Mirrors Android `MyNotificationsScreen`.
 struct MyNotificationsView: View {
     @Environment(ClientHomeViewModel.self) private var home: ClientHomeViewModel
+    @Environment(\.clientTabRouter) private var tabRouter
+    @Environment(\.dismiss) private var dismiss
     @State private var model = MyNotificationsViewModel()
 
     var body: some View {
@@ -69,9 +71,12 @@ struct MyNotificationsView: View {
     private func notificationCard(_ n: ClientNotificationDTO) -> some View {
         Button {
             Task {
-                guard let id = n.rowId, let cid = home.clientId else { return }
-                await model.markOneRead(notificationId: id, clientId: cid)
+                tabRouter?.openNotification(n)
+                if let id = n.rowId, let cid = home.clientId {
+                    await model.markOneRead(notificationId: id, clientId: cid)
+                }
                 await home.reloadNotificationsCount()
+                dismiss()
             }
         } label: {
             HStack(alignment: .top, spacing: 12) {
@@ -85,13 +90,13 @@ struct MyNotificationsView: View {
                     Text(n.title)
                         .font(.headline.weight(.semibold))
                         .foregroundStyle(Club360Theme.cardTitle)
-                Text(n.body)
-                    .font(.body)
-                    .foregroundStyle(Club360Theme.cardTitle)
+                    Text(n.body)
+                        .font(.body)
+                        .foregroundStyle(Club360Theme.cardTitle)
                     if let created = n.createdAt {
-                    Text(Club360Formatting.formatPaymentInstant(created))
-                        .font(.caption)
-                        .foregroundStyle(Club360Theme.cardSubtitle)
+                        Text(Club360Formatting.formatPaymentInstant(created))
+                            .font(.caption)
+                            .foregroundStyle(Club360Theme.cardSubtitle)
                     }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)

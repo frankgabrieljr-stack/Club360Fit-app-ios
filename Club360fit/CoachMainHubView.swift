@@ -14,6 +14,7 @@ struct CoachMainHubView: View {
 
     @State private var clientPicker: ClientPickerMode?
     @State private var fullScreenPlans: ClientRef?
+    @State private var coachUnreadNotifications = 0
 
     private let upcomingHorizonDays = 7
 
@@ -21,101 +22,137 @@ struct CoachMainHubView: View {
         ZStack {
             Club360ScreenBackground()
 
-            ScrollView {
-                VStack(alignment: .leading, spacing: 22) {
-                    hubHeader
+            ScrollViewReader { proxy in
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 22) {
+                        hubHeader
 
-                    if overview.isLoading, overview.scheduleEvents.isEmpty, overview.workoutPlans.isEmpty {
-                        ProgressView("Loading overview…")
-                            .tint(Club360Theme.tealDark)
-                            .frame(maxWidth: .infinity)
-                    }
+                        if overview.isLoading, overview.scheduleEvents.isEmpty, overview.workoutPlans.isEmpty {
+                            ProgressView("Loading overview…")
+                                .tint(Club360Theme.tealDark)
+                                .frame(maxWidth: .infinity)
+                        }
 
-                    if let err = overview.errorMessage {
-                        Text(err)
-                            .font(.footnote)
-                            .foregroundStyle(.red)
-                            .padding()
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .club360Glass(cornerRadius: 22)
-                    }
-
-                    overviewCards
-
-                    Text("Quick assign")
-                        .font(.subheadline.weight(.bold))
-                        .foregroundStyle(Club360Theme.cardTitle)
-                        .textCase(.uppercase)
-
-                    VStack(spacing: 10) {
-                        assignButton("Schedule session", systemImage: "calendar.badge.plus", mode: .schedule)
-                        assignButton("Workout plan", systemImage: "figure.run", mode: .workout)
-                        assignButton("Meal plan", systemImage: "takeoutbag.and.cup.and.straw.fill", mode: .meal)
-                    }
-
-                    Text("Calendar")
-                        .font(.subheadline.weight(.bold))
-                        .foregroundStyle(Club360Theme.cardTitle)
-                        .textCase(.uppercase)
-
-                    CoachHubCalendarStrip(
-                        visibleMonth: $visibleMonth,
-                        selectedDay: $selectedDay,
-                        eventDates: Set(overview.scheduleEvents.map(\.date))
-                    )
-
-                    eventsOnSelectedDay
-
-                    Text("Clients")
-                        .font(.subheadline.weight(.bold))
-                        .foregroundStyle(Club360Theme.cardTitle)
-                        .textCase(.uppercase)
-
-                    Text("Open a member to edit their assigned plans and sessions.")
-                        .font(.footnote)
-                        .foregroundStyle(Club360Theme.cardSubtitle)
-
-                    ForEach(admin.clients, id: \.stableId) { client in
-                        if let cid = client.id, !cid.isEmpty {
-                            NavigationLink {
-                                CoachPlansHubView(clientId: cid, displayTitle: AdminViewModel.listTitle(for: client))
-                            } label: {
-                                HStack {
-                                    VStack(alignment: .leading, spacing: 4) {
-                                        Text(AdminViewModel.listTitle(for: client))
-                                            .font(.headline.weight(.semibold))
-                                            .foregroundStyle(Club360Theme.cardTitle)
-                                        Text("Plans & schedule editor")
-                                            .font(.caption)
-                                            .foregroundStyle(Club360Theme.cardSubtitle)
-                                    }
-                                    Spacer()
-                                    Image(systemName: "chevron.right")
-                                        .font(.caption.weight(.semibold))
-                                        .foregroundStyle(Club360Theme.cardSubtitle.opacity(0.8))
-                                }
-                                .padding(16)
+                        if let err = overview.errorMessage {
+                            Text(err)
+                                .font(.footnote)
+                                .foregroundStyle(.red)
+                                .padding()
                                 .frame(maxWidth: .infinity, alignment: .leading)
-                                .club360Glass(cornerRadius: 24)
+                                .club360Glass(cornerRadius: 22)
+                        }
+
+                        overviewCards(proxy: proxy)
+
+                        Text("Quick assign")
+                            .font(.subheadline.weight(.bold))
+                            .foregroundStyle(Club360Theme.cardTitle)
+                            .textCase(.uppercase)
+
+                        VStack(spacing: 10) {
+                            assignButton("Schedule session", systemImage: "calendar.badge.plus", mode: .schedule)
+                            assignButton("Workout plan", systemImage: "figure.run", mode: .workout)
+                            assignButton("Meal plan", systemImage: "takeoutbag.and.cup.and.straw.fill", mode: .meal)
+                        }
+
+                        VStack(alignment: .leading, spacing: 12) {
+                            Text("Calendar")
+                                .font(.subheadline.weight(.bold))
+                                .foregroundStyle(Club360Theme.cardTitle)
+                                .textCase(.uppercase)
+
+                            CoachHubCalendarStrip(
+                                visibleMonth: $visibleMonth,
+                                selectedDay: $selectedDay,
+                                eventDates: Set(overview.scheduleEvents.map(\.date))
+                            )
+
+                            eventsOnSelectedDay
+                        }
+                        .id("calendarSection")
+
+                        Text("Clients")
+                            .font(.subheadline.weight(.bold))
+                            .foregroundStyle(Club360Theme.cardTitle)
+                            .textCase(.uppercase)
+
+                        Text("Open a member to edit their assigned plans and sessions.")
+                            .font(.footnote)
+                            .foregroundStyle(Club360Theme.cardSubtitle)
+
+                        ForEach(admin.clients, id: \.stableId) { client in
+                            if let cid = client.id, !cid.isEmpty {
+                                NavigationLink {
+                                    CoachPlansHubView(clientId: cid, displayTitle: AdminViewModel.listTitle(for: client))
+                                } label: {
+                                    HStack {
+                                        VStack(alignment: .leading, spacing: 4) {
+                                            Text(AdminViewModel.listTitle(for: client))
+                                                .font(.headline.weight(.semibold))
+                                                .foregroundStyle(Club360Theme.cardTitle)
+                                            Text("Plans & schedule editor")
+                                                .font(.caption)
+                                                .foregroundStyle(Club360Theme.cardSubtitle)
+                                        }
+                                        Spacer()
+                                        Image(systemName: "chevron.right")
+                                            .font(.caption.weight(.semibold))
+                                            .foregroundStyle(Club360Theme.cardSubtitle.opacity(0.8))
+                                    }
+                                    .padding(16)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                    .club360Glass(cornerRadius: 24)
+                                }
+                                .buttonStyle(.plain)
                             }
-                            .buttonStyle(.plain)
                         }
                     }
-                }
                 .padding(.horizontal, 18)
                 .padding(.bottom, 28)
+                }
             }
         }
         .navigationTitle("Hub")
         .navigationBarTitleDisplayMode(.large)
         .toolbarBackground(.ultraThinMaterial, for: .navigationBar)
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                NavigationLink {
+                    CoachHubNotificationsView(
+                        clientNameById: clientNameMap,
+                        onUnreadChanged: {
+                            Task { await loadCoachUnreadCount() }
+                        }
+                    )
+                } label: {
+                    ZStack(alignment: .topTrailing) {
+                        Image(systemName: "bell.fill")
+                            .font(.body.weight(.semibold))
+                            .foregroundStyle(Club360Theme.tealDark)
+                        if coachUnreadNotifications > 0 {
+                            Text("\(min(coachUnreadNotifications, 99))")
+                                .font(.caption2.weight(.bold))
+                                .foregroundStyle(.white)
+                                .padding(4)
+                                .background(Circle().fill(Club360Theme.peachDeep))
+                                .offset(x: 10, y: -10)
+                        }
+                    }
+                }
+            }
+        }
         .task {
             await admin.load()
             await reloadOverview()
+            await loadCoachUnreadCount()
+        }
+        .onAppear {
+            Task { await loadCoachUnreadCount() }
         }
         .refreshable {
             await admin.load()
             await reloadOverview()
+            await loadCoachUnreadCount()
         }
         .sheet(item: $clientPicker) { mode in
             ClientPickerSheet(
@@ -163,11 +200,20 @@ struct CoachMainHubView: View {
         .padding(.top, 4)
     }
 
-    private var overviewCards: some View {
+    private var clientNameMap: [String: String] {
+        var m: [String: String] = [:]
+        for c in admin.clients {
+            guard let id = c.id, !id.isEmpty else { continue }
+            m[id] = AdminViewModel.listTitle(for: c)
+        }
+        return m
+    }
+
+    private func overviewCards(proxy: ScrollViewProxy) -> some View {
         let cal = Calendar.current
         let today = cal.startOfDay(for: Date())
         let weekStart = Club360DateFormats.dayString(Calendar.weekStartSunday(containing: Date()))
-        let horizonEnd = cal.date(byAdding: .day, value: upcomingHorizonDays, to: today) ?? today
+        let horizonEndDay = cal.date(byAdding: .day, value: upcomingHorizonDays, to: today) ?? today
 
         let overdue = overview.scheduleEvents.filter { ev in
             guard !ev.isCompleted, let d = Club360DateFormats.postgresDay.date(from: ev.date) else { return false }
@@ -177,11 +223,52 @@ struct CoachMainHubView: View {
         let upcoming = overview.scheduleEvents.filter { ev in
             guard !ev.isCompleted, let d = Club360DateFormats.postgresDay.date(from: ev.date) else { return false }
             let ds = cal.startOfDay(for: d)
-            return ds >= today && ds <= horizonEnd
+            return ds >= today && ds <= horizonEndDay
+        }
+
+        let overdueSorted = overdue.sorted { a, b in
+            let da = Club360DateFormats.postgresDay.date(from: a.date) ?? .distantPast
+            let db = Club360DateFormats.postgresDay.date(from: b.date) ?? .distantPast
+            return da < db
+        }
+        let upcomingSorted = upcoming.sorted { a, b in
+            let da = Club360DateFormats.postgresDay.date(from: a.date) ?? .distantPast
+            let db = Club360DateFormats.postgresDay.date(from: b.date) ?? .distantPast
+            return da < db
         }
 
         let workoutThisWeek = overview.workoutPlans.filter { $0.weekStart == weekStart }.count
         let mealThisWeek = overview.mealPlans.filter { $0.weekStart == weekStart }.count
+
+        func scrollCalendarIntoView() {
+            withAnimation(.easeInOut(duration: 0.35)) {
+                proxy.scrollTo("calendarSection", anchor: .center)
+            }
+        }
+
+        func jumpToOverdueOrCalendar() {
+            if let ev = overdueSorted.first, let d = Club360DateFormats.postgresDay.date(from: ev.date) {
+                let day = cal.startOfDay(for: d)
+                selectedDay = day
+                visibleMonth = day
+            } else {
+                selectedDay = today
+                visibleMonth = today
+            }
+            scrollCalendarIntoView()
+        }
+
+        func jumpToUpcomingOrCalendar() {
+            if let ev = upcomingSorted.first, let d = Club360DateFormats.postgresDay.date(from: ev.date) {
+                let day = cal.startOfDay(for: d)
+                selectedDay = day
+                visibleMonth = day
+            } else {
+                selectedDay = today
+                visibleMonth = today
+            }
+            scrollCalendarIntoView()
+        }
 
         return VStack(alignment: .leading, spacing: 12) {
             Text("At a glance")
@@ -190,32 +277,42 @@ struct CoachMainHubView: View {
                 .textCase(.uppercase)
 
             LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
-                CoachStatCard(
+                CoachStatButton(
                     title: "Overdue",
                     value: "\(overdue.count)",
                     subtitle: "Sessions not done",
-                    tint: Club360Theme.peachDeep
+                    tint: Club360Theme.peachDeep,
+                    action: jumpToOverdueOrCalendar
                 )
-                CoachStatCard(
+                CoachStatButton(
                     title: "Next \(upcomingHorizonDays) days",
                     value: "\(upcoming.count)",
                     subtitle: "Upcoming sessions",
-                    tint: Club360Theme.tealDark
+                    tint: Club360Theme.tealDark,
+                    action: jumpToUpcomingOrCalendar
                 )
-                CoachStatCard(
+                CoachStatButton(
                     title: "This week",
                     value: "\(workoutThisWeek)",
                     subtitle: "Workout plans",
-                    tint: Club360Theme.mintDeep
+                    tint: Club360Theme.mintDeep,
+                    disabled: admin.clients.isEmpty,
+                    action: { clientPicker = .workout }
                 )
-                CoachStatCard(
+                CoachStatButton(
                     title: "This week",
                     value: "\(mealThisWeek)",
                     subtitle: "Meal plans",
-                    tint: Club360Theme.teal
+                    tint: Club360Theme.teal,
+                    disabled: admin.clients.isEmpty,
+                    action: { clientPicker = .meal }
                 )
             }
         }
+    }
+
+    private func loadCoachUnreadCount() async {
+        coachUnreadNotifications = (try? await ClientDataService.unreadNotificationCountForCoach()) ?? 0
     }
 
     private var eventsOnSelectedDay: some View {
@@ -397,29 +494,36 @@ private struct ClientPickerSheet: View {
     }
 }
 
-// MARK: - Stat card
+// MARK: - Stat tile (tap)
 
-private struct CoachStatCard: View {
+private struct CoachStatButton: View {
     let title: String
     let value: String
     let subtitle: String
     let tint: Color
+    var disabled: Bool = false
+    let action: () -> Void
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text(title)
-                .font(.caption.weight(.bold))
-                .foregroundStyle(Club360Theme.cardSubtitle)
-            Text(value)
-                .font(.title.weight(.bold))
-                .foregroundStyle(tint)
-            Text(subtitle)
-                .font(.caption2)
-                .foregroundStyle(Club360Theme.cardSubtitle)
+        Button(action: action) {
+            VStack(alignment: .leading, spacing: 6) {
+                Text(title)
+                    .font(.caption.weight(.bold))
+                    .foregroundStyle(Club360Theme.cardSubtitle)
+                Text(value)
+                    .font(.title.weight(.bold))
+                    .foregroundStyle(tint)
+                Text(subtitle)
+                    .font(.caption2)
+                    .foregroundStyle(Club360Theme.cardSubtitle)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(14)
+            .club360Glass(cornerRadius: 20)
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(14)
-        .club360Glass(cornerRadius: 20)
+        .buttonStyle(.plain)
+        .disabled(disabled)
+        .opacity(disabled ? 0.45 : 1)
     }
 }
 

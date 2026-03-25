@@ -86,6 +86,34 @@ extension ClientDataService {
         return rows.first
     }
 
+    /// Coach sets Venmo/Zelle and “upcoming due” fields (`coach_rw_client_payment_settings` RLS).
+    /// Uses explicit JSON nulls so cleared fields overwrite previous values.
+    static func upsertPaymentSettings(
+        clientId: String,
+        venmoUrl: String?,
+        zelleEmail: String?,
+        zellePhone: String?,
+        note: String,
+        nextDueDate: String?,
+        nextDueAmount: String?,
+        nextDueNote: String?
+    ) async throws {
+        let row: [String: AnyJSON] = [
+            "client_id": .string(clientId),
+            "venmo_url": venmoUrl.map { .string($0) } ?? .null,
+            "zelle_email": zelleEmail.map { .string($0) } ?? .null,
+            "zelle_phone": zellePhone.map { .string($0) } ?? .null,
+            "note": .string(note),
+            "next_due_date": nextDueDate.map { .string($0) } ?? .null,
+            "next_due_amount": nextDueAmount.map { .string($0) } ?? .null,
+            "next_due_note": nextDueNote.map { .string($0) } ?? .null,
+        ]
+        try await svc
+            .from("client_payment_settings")
+            .upsert(row)
+            .execute()
+    }
+
     static func fetchPaymentRecords(clientId: String) async throws -> [PaymentRecordDTO] {
         try await svc
             .from("payment_records")
@@ -120,10 +148,23 @@ extension ClientDataService {
             note: note.trimmingCharacters(in: .whitespacesAndNewlines),
             method: safeMethod
         )
-        try await svc
+        let inserted: [PaymentConfirmationDTO] = try await svc
             .from("payment_confirmations")
             .insert(row)
+            .select()
             .execute()
+            .value
+        let rid = inserted.first?.rowId
+        let amountPart = amountLabel.map { "Amount: \($0). " } ?? ""
+        await ClientDataService.notifyCoachAboutClient(
+            clientId: clientId,
+            kind: "payment_confirmation",
+            title: "Payment confirmation submitted",
+            body: "\(amountPart)\(note.trimmingCharacters(in: .whitespacesAndNewlines))",
+            refType: "payment",
+            refId: rid,
+            dedupeKey: rid.map { "payment_confirmation:\($0)" }
+        )
     }
 
     // MARK: - Notifications (`client_notifications`)

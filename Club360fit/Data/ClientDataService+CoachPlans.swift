@@ -20,14 +20,27 @@ extension ClientDataService {
             planText: planText,
             expectedSessions: max(1, min(14, expectedSessions))
         )
-        try await coachDb
+        let inserted: [WorkoutPlanDTO] = try await coachDb
             .from("workout_plans")
             .insert(row)
+            .select()
             .execute()
+            .value
+        let pid = inserted.first?.id
+        await ClientDataService.notifyMemberFromCoach(
+            clientId: clientId,
+            kind: "workout_plan",
+            title: "New workout plan",
+            body: title,
+            refType: "workout_plan",
+            refId: pid,
+            dedupeKey: pid.map { "workout_plan_new:\($0)" }
+        )
     }
 
     static func coachUpdateWorkoutPlan(
         id: String,
+        clientId: String,
         title: String,
         weekStart: Date,
         planText: String,
@@ -44,6 +57,14 @@ extension ClientDataService {
             .update(payload)
             .eq("id", value: id)
             .execute()
+        await ClientDataService.notifyMemberFromCoach(
+            clientId: clientId,
+            kind: "workout_plan",
+            title: "Workout plan updated",
+            body: title,
+            refType: "workout_plan",
+            refId: id
+        )
     }
 
     static func coachDeleteWorkoutPlan(id: String) async throws {
@@ -68,14 +89,27 @@ extension ClientDataService {
             weekStart: Club360DateFormats.dayString(Calendar.weekStartSunday(containing: weekStart)),
             planText: planText
         )
-        try await coachDb
+        let inserted: [MealPlanDTO] = try await coachDb
             .from("meal_plans")
             .insert(row)
+            .select()
             .execute()
+            .value
+        let pid = inserted.first?.id
+        await ClientDataService.notifyMemberFromCoach(
+            clientId: clientId,
+            kind: "meal_plan",
+            title: "New meal plan",
+            body: title,
+            refType: "meal_plan",
+            refId: pid,
+            dedupeKey: pid.map { "meal_plan_new:\($0)" }
+        )
     }
 
     static func coachUpdateMealPlan(
         id: String,
+        clientId: String,
         title: String,
         weekStart: Date,
         planText: String
@@ -90,6 +124,14 @@ extension ClientDataService {
             .update(payload)
             .eq("id", value: id)
             .execute()
+        await ClientDataService.notifyMemberFromCoach(
+            clientId: clientId,
+            kind: "meal_plan",
+            title: "Meal plan updated",
+            body: title,
+            refType: "meal_plan",
+            refId: id
+        )
     }
 
     static func coachDeleteMealPlan(id: String) async throws {
@@ -120,14 +162,26 @@ extension ClientDataService {
             clientId: clientId,
             isCompleted: isCompleted
         )
-        try await coachDb
+        let inserted: [ScheduleEventDTO] = try await coachDb
             .from("schedule_events")
             .insert(row)
+            .select()
             .execute()
+            .value
+        let eid = inserted.first?.rowId
+        await ClientDataService.notifyMemberFromCoach(
+            clientId: clientId,
+            kind: "schedule",
+            title: isCompleted ? "Session logged" : "New session scheduled",
+            body: "\(title) · \(Club360DateFormats.dayString(date))",
+            refType: "schedule",
+            refId: eid
+        )
     }
 
     static func coachUpdateScheduleEvent(
         id: String,
+        clientId: String,
         title: String,
         date: Date,
         time: String,
@@ -146,6 +200,14 @@ extension ClientDataService {
             .update(payload)
             .eq("id", value: id)
             .execute()
+        await ClientDataService.notifyMemberFromCoach(
+            clientId: clientId,
+            kind: "schedule",
+            title: "Session updated",
+            body: "\(title) · \(Club360DateFormats.dayString(date))",
+            refType: "schedule",
+            refId: id
+        )
     }
 
     static func coachDeleteScheduleEvent(id: String) async throws {

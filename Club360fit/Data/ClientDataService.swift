@@ -98,6 +98,15 @@ enum ClientDataService {
                 .from("workout_session_logs")
                 .insert(row)
                 .execute()
+            let day = Club360DateFormats.dayString(sessionDate)
+            await ClientDataService.notifyCoachAboutClient(
+                clientId: clientId,
+                kind: "workout_session_logged",
+                title: "Workout session logged",
+                body: "Member logged a session for \(day).",
+                refType: "workout_session",
+                refId: nil
+            )
         } catch {
             // duplicate day / unique constraint — same as Android
         }
@@ -107,10 +116,21 @@ enum ClientDataService {
 
     /// Mirrors Android `ProgressRepository.addCheckIn`.
     static func addProgressCheckIn(_ row: ProgressCheckInInsert) async throws {
-        try await db
+        let rows: [ProgressCheckInDTO] = try await db
             .from("progress_check_ins")
             .insert(row)
+            .select()
             .execute()
+            .value
+        let rid = rows.first?.id
+        await ClientDataService.notifyCoachAboutClient(
+            clientId: row.clientId,
+            kind: "progress_checkin",
+            title: "Progress check-in submitted",
+            body: "Check-in for \(row.checkInDate).",
+            refType: "progress",
+            refId: rid
+        )
     }
 
     // MARK: - Meal photo logs (`meal_photo_logs` + Storage)
@@ -191,6 +211,22 @@ enum ClientDataService {
         guard let first = rows.first else {
             throw ClientDataServiceError.insertedMealPhotoRowMissing
         }
+        let notePreview = first.notes?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        let body: String
+        if notePreview.isEmpty {
+            body = "Photo for \(first.logDate)."
+        } else {
+            body = "Photo for \(first.logDate) — \(notePreview)"
+        }
+        await ClientDataService.notifyCoachAboutClient(
+            clientId: clientId,
+            kind: "meal_photo_upload",
+            title: "New meal photo",
+            body: body,
+            refType: "meal_photo",
+            refId: first.id,
+            dedupeKey: first.id.map { "meal_photo_upload:\($0)" }
+        )
         return first
     }
 
@@ -219,23 +255,27 @@ enum ClientDataService {
 
         if !trimmed.isEmpty {
             // Best-effort: bell badge counts `client_notifications`; fails quietly if coach INSERT policy isn’t applied yet.
-            try? await insertMealPhotoFeedbackClientNotification(clientId: clientId, feedbackPreview: trimmed)
+            try? await insertMealPhotoFeedbackClientNotification(clientId: clientId, logId: logId, feedbackPreview: trimmed)
         }
     }
 
     /// In-app notification so the member sees the bell badge (requires migration `013_coach_insert_client_notifications`).
-    private static func insertMealPhotoFeedbackClientNotification(clientId: String, feedbackPreview: String) async throws {
+    private static func insertMealPhotoFeedbackClientNotification(
+        clientId: String,
+        logId: String,
+        feedbackPreview: String
+    ) async throws {
         let preview = String(feedbackPreview.prefix(500))
         let row = ClientNotificationInsert(
             clientId: clientId,
             kind: "meal_feedback",
             title: "Coach feedback on your meal photo",
-            body: preview.isEmpty ? "Your coach left feedback." : preview
+            body: preview.isEmpty ? "Your coach left feedback." : preview,
+            refType: "meal_photo",
+            refId: logId,
+            visibleToClient: true
         )
-        try await db
-            .from("client_notifications")
-            .insert(row)
-            .execute()
+        try await insertClientNotification(row)
     }
 
     /// Mirrors Android `MealPhotoRepository.deleteOwn`.

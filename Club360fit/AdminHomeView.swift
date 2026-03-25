@@ -335,14 +335,25 @@ struct AdminClientHubView: View {
                             }
                         }
 
+                        NavigationLink {
+                            CoachPaymentSettingsView(clientId: clientId, clientDisplayName: displayTitle)
+                        } label: {
+                            Club360HomeTile(
+                                title: "Payment setup",
+                                subtitle: "Venmo, Zelle, due date",
+                                systemImage: "square.and.pencil",
+                                accent: Club360Theme.burgundy
+                            )
+                        }
+
                         if homeModel.canViewPayments {
                             NavigationLink {
                                 MyPaymentsView()
                                     .environment(homeModel)
                             } label: {
                                 Club360HomeTile(
-                                    title: "Payments",
-                                    subtitle: "Venmo or Zelle",
+                                    title: "Payments (preview)",
+                                    subtitle: "Same as member sees",
                                     systemImage: "dollarsign.circle.fill",
                                     accent: Club360Theme.mintDeep
                                 )

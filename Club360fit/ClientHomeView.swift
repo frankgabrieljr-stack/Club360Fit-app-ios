@@ -5,28 +5,36 @@ import SwiftUI
 struct ClientHomeView: View {
     @Environment(Club360AuthSession.self) private var auth: Club360AuthSession
     @State private var homeModel = ClientHomeViewModel()
+    @State private var tabRouter = ClientTabRouter()
 
     var body: some View {
-        TabView {
-            ClientHomeTab()
+        @Bindable var tabRouter = tabRouter
+        TabView(selection: $tabRouter.selectedTab) {
+            ClientHomeTab(tabRouter: tabRouter)
                 .tabItem { Label("Home", systemImage: "house.fill") }
+                .tag(ClientTab.home)
 
             ClientWorkoutsTab()
                 .tabItem { Label("Workouts", systemImage: "figure.strengthtraining.traditional") }
+                .tag(ClientTab.workouts)
 
-            ClientMealsTab()
+            ClientMealsTab(tabRouter: tabRouter)
                 .tabItem { Label("Meals", systemImage: "fork.knife") }
+                .tag(ClientTab.meals)
 
             ClientProgressTab()
                 .tabItem { Label("Progress", systemImage: "chart.line.uptrend.xyaxis") }
+                .tag(ClientTab.progress)
 
             NavigationStack {
                 UserProfileView()
             }
             .tabItem { Label("Profile", systemImage: "person.crop.circle") }
+            .tag(ClientTab.profile)
         }
         .tint(Club360Theme.tealDark)
         .environment(homeModel)
+        .environment(\.clientTabRouter, tabRouter)
         .task(id: auth.session?.user.id) {
             guard let session = auth.session else { return }
             await homeModel.load(session: session)
@@ -37,11 +45,12 @@ struct ClientHomeView: View {
 // MARK: - Home tab
 
 private struct ClientHomeTab: View {
+    @Bindable var tabRouter: ClientTabRouter
     @Environment(Club360AuthSession.self) private var auth: Club360AuthSession
     @Environment(ClientHomeViewModel.self) private var home: ClientHomeViewModel
 
     var body: some View {
-        NavigationStack {
+        NavigationStack(path: $tabRouter.homePath) {
             ZStack {
                 Club360ScreenBackground()
 
@@ -234,6 +243,21 @@ private struct ClientHomeTab: View {
                     await home.load(session: s)
                 }
             }
+            .navigationDestination(for: HomeDeepLink.self) { link in
+                switch link {
+                case .schedule:
+                    MyScheduleView()
+                        .environment(home)
+                case .payments:
+                    MyPaymentsView()
+                        .environment(home)
+                case .habits:
+                    MyDailyHabitsView()
+                        .environment(home)
+                case .gallery:
+                    TransformationGalleryView()
+                }
+            }
         }
     }
 
@@ -316,12 +340,20 @@ private struct ClientWorkoutsTab: View {
 }
 
 private struct ClientMealsTab: View {
+    @Bindable var tabRouter: ClientTabRouter
     @Environment(ClientHomeViewModel.self) private var home: ClientHomeViewModel
 
     var body: some View {
-        NavigationStack {
+        NavigationStack(path: $tabRouter.mealsPath) {
             MyMealsView()
                 .environment(home)
+                .navigationDestination(for: MealsDeepLink.self) { link in
+                    switch link {
+                    case .mealPhotos:
+                        MyMealPhotosView()
+                            .environment(home)
+                    }
+                }
         }
     }
 }

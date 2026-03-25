@@ -505,6 +505,7 @@ private struct CoachWorkoutPlanFormSheet: View {
             if let id = existing?.id, !id.isEmpty {
                 try await ClientDataService.coachUpdateWorkoutPlan(
                     id: id,
+                    clientId: clientId,
                     title: t,
                     weekStart: weekStart,
                     planText: planText,
@@ -598,6 +599,7 @@ private struct CoachMealPlanFormSheet: View {
             if let id = existing?.id, !id.isEmpty {
                 try await ClientDataService.coachUpdateMealPlan(
                     id: id,
+                    clientId: clientId,
                     title: t,
                     weekStart: weekStart,
                     planText: planText
@@ -710,6 +712,7 @@ private struct CoachScheduleEventFormSheet: View {
             if let rid = existing?.rowId, !rid.isEmpty {
                 try await ClientDataService.coachUpdateScheduleEvent(
                     id: rid,
+                    clientId: clientId,
                     title: t,
                     date: dayStart,
                     time: time,
