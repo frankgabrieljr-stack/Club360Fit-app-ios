@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Parity with Android `AuthScreen` (create account): metadata fields + admin toggle.
+/// Signup form — role is always "client"; promotion to admin is server-side only.
 struct CreateAccountView: View {
     @Environment(Club360AuthSession.self) private var auth: Club360AuthSession
     @State private var name = ""
@@ -15,7 +15,6 @@ struct CreateAccountView: View {
     @State private var mealsPerDay = ""
     @State private var workoutFrequency = ""
     @State private var overallGoal = ""
-    @State private var isAdmin = false
     @State private var isBusy = false
     @State private var needsEmailConfirmation = false
     @State private var passwordVisible = false
@@ -54,10 +53,6 @@ struct CreateAccountView: View {
                 TextField("Overall goal", text: $overallGoal, axis: .vertical)
                     .lineLimit(2 ... 4)
             }
-            Section {
-                Toggle("I am an admin", isOn: $isAdmin)
-                    .tint(Club360Theme.tealDark)
-            }
             if needsEmailConfirmation {
                 Section {
                     Text("Check your email to confirm your account, then sign in.")
@@ -89,8 +84,7 @@ struct CreateAccountView: View {
                             foodRestrictions: foodRestrictions,
                             mealsPerDay: mealsPerDay,
                             workoutFrequency: workoutFrequency,
-                            overallGoal: overallGoal,
-                            isAdmin: isAdmin
+                            overallGoal: overallGoal
                         )
                         if !ok, auth.errorMessage == nil {
                             needsEmailConfirmation = true
