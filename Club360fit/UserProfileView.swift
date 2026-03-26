@@ -2,6 +2,7 @@ import Auth
 import Observation
 import PhotosUI
 import SwiftUI
+import UIKit
 import Supabase
 
 /// Rich profile — mirrors Android `UserProfileScreen` (avatar, role, sign out).
@@ -14,7 +15,6 @@ struct UserProfileView: View {
     var body: some View {
         ZStack {
             Club360ScreenBackground()
-
             ScrollView {
                 VStack(spacing: 22) {
                     PhotosPicker(selection: $pickerItem, matching: .images) {
@@ -33,7 +33,6 @@ struct UserProfileView: View {
                                             lineWidth: 2.5
                                         )
                                 )
-
                             Circle()
                                 .fill(Club360Theme.primaryButtonGradient)
                                 .frame(width: 36, height: 36)
@@ -87,9 +86,7 @@ struct UserProfileView: View {
                             .foregroundStyle(.red)
                     }
 
-                    NavigationLink {
-                        ChangePasswordView()
-                    } label: {
+                    NavigationLink { ChangePasswordView() } label: {
                         Text("Change password")
                     }
                     .buttonStyle(Club360PrimaryGradientButtonStyle())
@@ -113,10 +110,8 @@ struct UserProfileView: View {
             if let urlString = avatarURLString, let url = URL(string: urlString) {
                 AsyncImage(url: url) { phase in
                     switch phase {
-                    case .empty:
-                        ProgressView()
-                    case let .success(img):
-                        img.resizable().scaledToFill()
+                    case .empty: ProgressView()
+                    case let .success(img): img.resizable().scaledToFill()
                     default:
                         Image(systemName: "person.fill")
                             .font(.system(size: 48))
@@ -142,16 +137,15 @@ struct UserProfileView: View {
     private var avatarURLString: String? {
         guard let meta = auth.session?.user.userMetadata else { return nil }
         if case let .string(s) = meta["avatar_url"] { return s }
-        if case let .string(s) = meta["picture"] { return s }
+        if case let .string(s) = meta["picture"]    { return s }
         return nil
     }
 
     private var displayName: String {
         guard let meta = auth.session?.user.userMetadata else { return "Member" }
         if case let .string(name) = meta["name"], !name.isEmpty { return name }
-        if let email = auth.session?.user.email, let local = email.split(separator: "@").first {
-            return String(local)
-        }
+        if let email = auth.session?.user.email,
+           let local = email.split(separator: "@").first { return String(local) }
         return "Member"
     }
 
@@ -159,15 +153,33 @@ struct UserProfileView: View {
         auth.session?.user.isAdminRole == true ? "Admin" : "Client"
     }
 
+    // MARK: - Avatar upload (converts any source format to JPEG before uploading)
     private func uploadAvatar(from item: PhotosPickerItem?) async {
-        guard let item,
-              let data = try? await item.loadTransferable(type: Data.self),
-              let uid = auth.session?.user.id.uuidString else { return }
+        guard let item else { return }
+
+        // Load raw bytes from the picker
+        guard let rawData = try? await item.loadTransferable(type: Data.self) else {
+            uploadError = "Could not load image data."
+            return
+        }
+        guard let uid = auth.session?.user.id.uuidString.lowercased() else { return }
+
+        // Convert to JPEG regardless of source format (HEIC, PNG, etc.).
+        // This ensures the avatars bucket always stores a proper JPEG and
+        // the content-type header matches `image/jpeg`.
+        guard let uiImage = UIImage(data: rawData),
+              let jpegData = uiImage.jpegData(compressionQuality: 0.85)
+        else {
+            uploadError = "Could not convert image to JPEG."
+            return
+        }
+
         isUploadingAvatar = true
         uploadError = nil
         defer { isUploadingAvatar = false }
+
         do {
-            let url = try await ClientDataService.uploadUserAvatar(data: data, userId: uid)
+            let url = try await ClientDataService.uploadUserAvatar(data: jpegData, userId: uid)
             do {
                 try await auth.updateUserMetadata(["avatar_url": .string(url.absoluteString)])
             } catch {
