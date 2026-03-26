@@ -46,6 +46,7 @@ final class Club360AuthSession {
     }
 
     /// - Returns: `true` if a session was created immediately; `false` if email confirmation is required (no session yet).
+    /// Role is always hardcoded to "client" — admin promotion requires the set-user-role Edge Function.
     func signUp(
         email: String,
         password: String,
@@ -58,8 +59,7 @@ final class Club360AuthSession {
         foodRestrictions: String,
         mealsPerDay: String,
         workoutFrequency: String,
-        overallGoal: String,
-        isAdmin: Bool
+        overallGoal: String
     ) async -> Bool {
         errorMessage = nil
         let trimmedEmail = email.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -74,7 +74,7 @@ final class Club360AuthSession {
             "meals_per_day": .string(mealsPerDay),
             "workout_frequency": .string(workoutFrequency),
             "overall_goal": .string(overallGoal),
-            "role": .string(isAdmin ? "admin" : "client"),
+            "role": .string("client"),  // Always client — never let the user self-promote.
         ]
         do {
             let response = try await client.auth.signUp(email: trimmedEmail, password: password, data: data)
