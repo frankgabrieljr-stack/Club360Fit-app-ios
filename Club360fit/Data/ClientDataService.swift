@@ -5,6 +5,12 @@ import Supabase
 /// PostgREST calls aligned with Android repositories (`ClientSelfRepository`, `WorkoutPlanRepository`, etc.).
 enum ClientDataService {
     private static var db: SupabaseClient { Club360FitSupabase.shared }
+    private struct ClientAccessPatch: Encodable {
+        let can_view_workouts: Bool
+        let can_view_nutrition: Bool
+        let can_view_events: Bool
+        let can_view_payments: Bool
+    }
 
     /// `clients` row for the signed-in auth user (`user_id` = `auth.uid`).
     static func fetchOwnClientProfile(userId: String) async throws -> ClientDTO? {
@@ -68,6 +74,27 @@ enum ClientDataService {
         guard let session = db.auth.currentSession else { return }
         let uid = session.user.id.uuidString
         let patch: [String: AnyJSON] = ["coach_id": .string(uid)]
+        try await db
+            .from("clients")
+            .update(patch)
+            .eq("id", value: clientId)
+            .execute()
+    }
+
+    /// Coach/admin: updates which tiles/features are available to this member.
+    static func updateClientAccessFlags(
+        clientId: String,
+        canViewWorkouts: Bool,
+        canViewNutrition: Bool,
+        canViewEvents: Bool,
+        canViewPayments: Bool
+    ) async throws {
+        let patch = ClientAccessPatch(
+            can_view_workouts: canViewWorkouts,
+            can_view_nutrition: canViewNutrition,
+            can_view_events: canViewEvents,
+            can_view_payments: canViewPayments
+        )
         try await db
             .from("clients")
             .update(patch)

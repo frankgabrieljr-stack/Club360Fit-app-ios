@@ -161,6 +161,13 @@ struct AdminClientHubView: View {
     @State private var roleSuccess: String?
     @State private var desiredCoachAccess = false
     @State private var showApplyConfirm = false
+    @State private var accessWorkouts = true
+    @State private var accessNutrition = true
+    @State private var accessEvents = false
+    @State private var accessPayments = false
+    @State private var accessBusy = false
+    @State private var accessError: String?
+    @State private var accessSuccess: String?
     @State private var transferTargetCoachId = ""
     @State private var transferBusy = false
     @State private var transferError: String?
@@ -506,6 +513,50 @@ struct AdminClientHubView: View {
                     .club360Glass(cornerRadius: 22)
 
                     VStack(alignment: .leading, spacing: 12) {
+                        Text("Member app access")
+                            .font(.headline.weight(.semibold))
+                            .foregroundStyle(Club360Theme.cardTitle)
+                        Text("Enable or disable tiles in the member app.")
+                            .font(.footnote)
+                            .foregroundStyle(Club360Theme.captionOnGlass)
+
+                        Toggle("Workouts", isOn: $accessWorkouts)
+                            .tint(Club360Theme.burgundy)
+                            .disabled(accessBusy)
+                        Toggle("Meals / nutrition", isOn: $accessNutrition)
+                            .tint(Club360Theme.burgundy)
+                            .disabled(accessBusy)
+                        Toggle("Schedule", isOn: $accessEvents)
+                            .tint(Club360Theme.burgundy)
+                            .disabled(accessBusy)
+                        Toggle("Payments", isOn: $accessPayments)
+                            .tint(Club360Theme.burgundy)
+                            .disabled(accessBusy)
+
+                        if let accessSuccess {
+                            Text(accessSuccess)
+                                .font(.footnote.weight(.medium))
+                                .foregroundStyle(Club360Theme.burgundy)
+                        }
+                        if let accessError {
+                            Text(accessError)
+                                .font(.footnote)
+                                .foregroundStyle(.red)
+                        }
+
+                        Button {
+                            Task { await applyMemberAccess() }
+                        } label: {
+                            Text(accessBusy ? "Saving…" : "Apply access")
+                        }
+                        .buttonStyle(Club360PrimaryGradientButtonStyle())
+                        .disabled(accessBusy)
+                    }
+                    .padding(16)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .club360Glass(cornerRadius: 22)
+
+                    VStack(alignment: .leading, spacing: 12) {
                         Text("Transfer to another coach")
                             .font(.headline.weight(.semibold))
                             .foregroundStyle(Club360Theme.cardTitle)
@@ -558,6 +609,9 @@ struct AdminClientHubView: View {
         .navigationTitle("Member settings")
         .navigationBarTitleDisplayMode(.inline)
         .toolbarBackground(.ultraThinMaterial, for: .navigationBar)
+        .onAppear {
+            syncAccessTogglesFromHomeModel()
+        }
     }
 
     private func applyMemberRole(_ role: String) async {
@@ -589,6 +643,34 @@ struct AdminClientHubView: View {
             dismiss()
         } catch {
             transferError = error.localizedDescription
+        }
+    }
+
+    private func syncAccessTogglesFromHomeModel() {
+        accessWorkouts = homeModel.canViewWorkouts
+        accessNutrition = homeModel.canViewNutrition
+        accessEvents = homeModel.canViewEvents
+        accessPayments = homeModel.canViewPayments
+    }
+
+    private func applyMemberAccess() async {
+        accessBusy = true
+        accessError = nil
+        accessSuccess = nil
+        defer { accessBusy = false }
+        do {
+            try await ClientDataService.updateClientAccessFlags(
+                clientId: clientId,
+                canViewWorkouts: accessWorkouts,
+                canViewNutrition: accessNutrition,
+                canViewEvents: accessEvents,
+                canViewPayments: accessPayments
+            )
+            accessSuccess = "Member app access updated."
+            await homeModel.loadForClient(clientId: clientId)
+            syncAccessTogglesFromHomeModel()
+        } catch {
+            accessError = error.localizedDescription
         }
     }
 
