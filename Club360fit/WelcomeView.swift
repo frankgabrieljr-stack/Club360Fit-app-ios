@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Parity with Android `WelcomeScreen`: logo, tagline, Create account / Sign in.
+/// Parity with Android `WelcomeScreen`: logo, tagline, Sign in (primary) / Create account (outlined).
 struct WelcomeView: View {
     let onSignIn: () -> Void
     let onCreateAccount: () -> Void
@@ -28,13 +28,13 @@ struct WelcomeView: View {
 
                 Spacer(minLength: 24)
 
-                Button(action: onCreateAccount) {
-                    Text("Create account")
+                Button(action: onSignIn) {
+                    Text("Sign in")
                 }
                 .buttonStyle(Club360PrimaryGradientButtonStyle())
 
-                Button(action: onSignIn) {
-                    Text("Sign in")
+                Button(action: onCreateAccount) {
+                    Text("Create account")
                         .font(.headline)
                         .foregroundStyle(Club360Theme.burgundy)
                         .frame(maxWidth: .infinity)

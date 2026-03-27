@@ -40,6 +40,18 @@ enum ClientDataService {
             .value
     }
 
+    /// Sets `coach_id` to the signed-in user when the row is still unassigned (signup intake). Required for plan RLS after `coach_id` became nullable.
+    static func claimCoachAssignmentIfNeeded(clientId: String) async throws {
+        guard let session = db.auth.currentSession else { return }
+        let uid = session.user.id.uuidString
+        let patch: [String: AnyJSON] = ["coach_id": .string(uid)]
+        try await db
+            .from("clients")
+            .update(patch)
+            .eq("id", value: clientId)
+            .execute()
+    }
+
     static func fetchWorkoutPlans(clientId: String) async throws -> [WorkoutPlanDTO] {
         try await db
             .from("workout_plans")

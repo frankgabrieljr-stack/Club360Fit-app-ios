@@ -41,12 +41,11 @@ final class Club360AuthSession {
             _ = try await client.auth.user()
             session = client.auth.currentSession
         } catch {
-            errorMessage = error.localizedDescription
+            errorMessage = Self.userFacingAuthError(error)
         }
     }
 
     /// - Returns: `true` if a session was created immediately; `false` if email confirmation is required (no session yet).
-    /// Role is always hardcoded to "client" — admin promotion requires the set-user-role Edge Function.
     func signUp(
         email: String,
         password: String,
@@ -74,7 +73,8 @@ final class Club360AuthSession {
             "meals_per_day": .string(mealsPerDay),
             "workout_frequency": .string(workoutFrequency),
             "overall_goal": .string(overallGoal),
-            "role": .string("client"),  // Always client — never let the user self-promote.
+            /// Coach/admin access is assigned in Supabase (Auth → Users → user metadata), not from the app.
+            "role": .string("client"),
         ]
         do {
             let response = try await client.auth.signUp(email: trimmedEmail, password: password, data: data)
@@ -86,7 +86,7 @@ final class Club360AuthSession {
             session = nil
             return false
         } catch {
-            errorMessage = error.localizedDescription
+            errorMessage = Self.userFacingAuthError(error)
             return false
         }
     }
@@ -97,7 +97,7 @@ final class Club360AuthSession {
             try await client.auth.signOut()
             session = nil
         } catch {
-            errorMessage = error.localizedDescription
+            errorMessage = Self.userFacingAuthError(error)
         }
     }
 
@@ -131,10 +131,32 @@ final class Club360AuthSession {
         }
     }
 
-    /// Merge metadata keys (e.g. `avatar_url`) — same idea as Android `auth.updateUser { data = … }`.
-    func updateUserMetadata(_ data: [String: AnyJSON]) async throws {
-        _ = try await client.auth.update(user: UserAttributes(data: data))
+    /// Merges keys into existing `user_metadata` so fields like `name` and `role` are not wiped when updating `avatar_url`.
+    func updateUserMetadata(_ updates: [String: AnyJSON]) async throws {
+        let existing = session?.user.userMetadata ?? [:]
+        let merged = existing.merging(updates) { _, new in new }
+        _ = try await client.auth.update(user: UserAttributes(data: merged))
         _ = try await client.auth.user()
         session = client.auth.currentSession
+    }
+
+    /// Supabase often returns a generic "Database error saving new user" when a trigger or constraint fails server-side.
+    private static func userFacingAuthError(_ error: Error) -> String {
+        let base: String = {
+            if let authError = error as? AuthError {
+                switch authError {
+                case let .api(message, _, _, _):
+                    return message
+                default:
+                    break
+                }
+            }
+            return error.localizedDescription
+        }()
+
+        if base.localizedCaseInsensitiveContains("database error saving new user") {
+            return base + "\n\nThis is a Supabase database issue (not your form). Common causes: a trigger on auth.users that inserts into another table failed, RLS blocked that insert, or a NOT NULL/default constraint. Check Supabase → Logs → Postgres for the exact SQL error, and review triggers on auth.users."
+        }
+        return base
     }
 }

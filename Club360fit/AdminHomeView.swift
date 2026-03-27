@@ -27,7 +27,8 @@ struct AdminHomeView: View {
             }
             .tabItem { Label("Profile", systemImage: "person.crop.circle") }
         }
-        .tint(Club360Theme.tealDark)
+        .tint(Club360Theme.burgundy)
+        .preferredColorScheme(.light)
     }
 }
 
@@ -133,12 +134,12 @@ private struct AdminClientRow: View {
                     .foregroundStyle(Club360Theme.cardTitle)
                 Text(subtitle)
                     .font(.caption)
-                    .foregroundStyle(Club360Theme.cardSubtitle)
+                    .foregroundStyle(Club360Theme.captionOnGlass)
             }
             Spacer(minLength: 8)
             Image(systemName: "chevron.right")
                 .font(.caption.weight(.semibold))
-                .foregroundStyle(Club360Theme.cardSubtitle.opacity(0.8))
+                .foregroundStyle(Club360Theme.captionOnGlass.opacity(0.85))
         }
         .padding(18)
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -152,7 +153,18 @@ struct AdminClientHubView: View {
     let clientId: String
     let displayTitle: String
 
+    @Environment(\.dismiss) private var dismiss
+
     @State private var homeModel = ClientHomeViewModel()
+    @State private var roleBusy = false
+    @State private var roleError: String?
+    @State private var roleSuccess: String?
+    @State private var desiredCoachAccess = false
+    @State private var showApplyConfirm = false
+    @State private var transferTargetCoachId = ""
+    @State private var transferBusy = false
+    @State private var transferError: String?
+    @State private var showTransferConfirm = false
 
     var body: some View {
         Group {
@@ -184,7 +196,7 @@ struct AdminClientHubView: View {
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 NavigationLink {
-                    MyNotificationsView()
+                    MyNotificationsView(inbox: .coach)
                         .environment(homeModel)
                 } label: {
                     ZStack(alignment: .topTrailing) {
@@ -221,15 +233,17 @@ struct AdminClientHubView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 22) {
                     HStack(alignment: .center, spacing: 14) {
-                        Image("LogoBurgundy")
-                            .resizable()
-                            .scaledToFit()
-                            .frame(width: 52, height: 52)
-                            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                        memberAvatar
+                            .frame(width: 56, height: 56)
+                            .clipShape(Circle())
+                            .overlay(
+                                Circle()
+                                    .stroke(Color.black.opacity(0.1), lineWidth: 1)
+                            )
                         VStack(alignment: .leading, spacing: 4) {
                             Text("Member")
                                 .font(.caption.weight(.bold))
-                                .foregroundStyle(Club360Theme.cardSubtitle)
+                                .foregroundStyle(Club360Theme.captionOnGlass)
                                 .textCase(.uppercase)
                             Text(homeModel.welcomeName)
                                 .font(.title2.weight(.bold))
@@ -248,7 +262,7 @@ struct AdminClientHubView: View {
                         }
                         Text("Create and assign workout plans, meal plans, and sessions from the Hub tab. Use the tiles below to review what’s assigned for \(homeModel.welcomeName).")
                             .font(.footnote)
-                            .foregroundStyle(Club360Theme.cardSubtitle)
+                            .foregroundStyle(Club360Theme.captionOnGlass)
                             .fixedSize(horizontal: false, vertical: true)
                     }
                     .padding(18)
@@ -276,8 +290,8 @@ struct AdminClientHubView: View {
                             Club360HomeTile(
                                 title: "Workouts",
                                 subtitle: workoutSubtitle,
-                                systemImage: "figure.run",
-                                accent: Club360Theme.mintDeep
+                                systemImage: "figure.strengthtraining.traditional",
+                                accent: Club360Theme.burgundyLight
                             )
                         }
                         .disabled(!homeModel.canViewWorkouts)
@@ -329,8 +343,8 @@ struct AdminClientHubView: View {
                                 Club360HomeTile(
                                     title: "Schedule",
                                     subtitle: scheduleSubtitle,
-                                    systemImage: "calendar",
-                                    accent: Club360Theme.mintDeep
+                                    systemImage: "calendar.badge.clock",
+                                    accent: Club360Theme.burgundy
                                 )
                             }
                         }
@@ -354,8 +368,8 @@ struct AdminClientHubView: View {
                                 Club360HomeTile(
                                     title: "Payments (preview)",
                                     subtitle: "Same as member sees",
-                                    systemImage: "dollarsign.circle.fill",
-                                    accent: Club360Theme.mintDeep
+                                    systemImage: "banknote.fill",
+                                    accent: Club360Theme.burgundy
                                 )
                             }
                         }
@@ -371,6 +385,19 @@ struct AdminClientHubView: View {
                                 accent: Club360Theme.purpleLight
                             )
                         }
+
+                        if homeModel.memberAuthUserId != nil {
+                            NavigationLink {
+                                clientSettingsView
+                            } label: {
+                                Club360HomeTile(
+                                    title: "Member settings",
+                                    subtitle: "Access and transfer",
+                                    systemImage: "slider.horizontal.3",
+                                    accent: Club360Theme.burgundy
+                                )
+                            }
+                        }
                     }
                 }
                 .padding(.horizontal, 18)
@@ -379,16 +406,202 @@ struct AdminClientHubView: View {
         }
     }
 
+    private var memberAvatar: some View {
+        Group {
+            if let uid = homeModel.memberAuthUserId,
+               let url = ClientDataService.publicAvatarURLForAuthUserId(uid) {
+                AsyncImage(url: url) { phase in
+                    switch phase {
+                    case .empty:
+                        ZStack {
+                            Club360Theme.creamWarm
+                            ProgressView()
+                                .tint(Club360Theme.burgundy)
+                        }
+                    case .success(let image):
+                        image
+                            .resizable()
+                            .scaledToFill()
+                    default:
+                        Image("LogoBurgundy")
+                            .resizable()
+                            .scaledToFit()
+                            .padding(6)
+                    }
+                }
+            } else {
+                Image("LogoBurgundy")
+                    .resizable()
+                    .scaledToFit()
+                    .padding(4)
+            }
+        }
+    }
+
+    private var clientSettingsView: some View {
+        ZStack {
+            Club360ScreenBackground()
+            ScrollView {
+                VStack(alignment: .leading, spacing: 14) {
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text("Account access")
+                            .font(.headline.weight(.semibold))
+                            .foregroundStyle(Club360Theme.cardTitle)
+                        Text(
+                            "Use the toggle, then tap Apply. Requires the set-user-role Edge Function deployed to your Supabase project. The member must sign out and sign in again."
+                        )
+                        .font(.footnote)
+                        .foregroundStyle(Club360Theme.captionOnGlass)
+                        .fixedSize(horizontal: false, vertical: true)
+
+                        Toggle(isOn: $desiredCoachAccess) {
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("Coach / admin access")
+                                    .foregroundStyle(Club360Theme.cardTitle)
+                                Text("Off = member-only access")
+                                    .font(.caption)
+                                    .foregroundStyle(Club360Theme.captionOnGlass)
+                            }
+                        }
+                        .tint(Club360Theme.burgundy)
+                        .disabled(roleBusy)
+
+                        if let roleSuccess {
+                            Text(roleSuccess)
+                                .font(.footnote.weight(.medium))
+                                .foregroundStyle(Club360Theme.burgundy)
+                        }
+                        if let roleError {
+                            Text(roleError)
+                                .font(.footnote)
+                                .foregroundStyle(.red)
+                        }
+
+                        Button {
+                            showApplyConfirm = true
+                        } label: {
+                            Text(roleBusy ? "Updating…" : "Apply")
+                        }
+                        .buttonStyle(Club360PrimaryGradientButtonStyle())
+                        .disabled(roleBusy)
+                        .confirmationDialog(
+                            desiredCoachAccess ? "Grant coach/admin access?" : "Set member-only access?",
+                            isPresented: $showApplyConfirm,
+                            titleVisibility: .visible
+                        ) {
+                            Button("Apply", role: .destructive) {
+                                Task { await applyMemberRole(desiredCoachAccess ? "admin" : "client") }
+                            }
+                            Button("Cancel", role: .cancel) {}
+                        } message: {
+                            Text(
+                                desiredCoachAccess
+                                    ? "This will let the member access the Hub after signing in again."
+                                    : "This will remove Hub access after signing in again."
+                            )
+                        }
+                    }
+                    .padding(16)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .club360Glass(cornerRadius: 22)
+
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text("Transfer to another coach")
+                            .font(.headline.weight(.semibold))
+                            .foregroundStyle(Club360Theme.cardTitle)
+                        Text(
+                            "Paste the other coach’s user ID (UUID from Supabase → Authentication → Users). You must be this member’s current coach. After transfer, you will no longer see them in your list."
+                        )
+                        .font(.footnote)
+                        .foregroundStyle(Club360Theme.captionOnGlass)
+                        .fixedSize(horizontal: false, vertical: true)
+                        TextField("Target coach user UUID", text: $transferTargetCoachId)
+                            .textContentType(.none)
+                            .autocorrectionDisabled()
+                            .foregroundStyle(Club360Theme.cardTitle)
+                        if let transferError {
+                            Text(transferError)
+                                .font(.footnote)
+                                .foregroundStyle(.red)
+                        }
+                        Button {
+                            showTransferConfirm = true
+                        } label: {
+                            Text(transferBusy ? "Transferring…" : "Transfer client")
+                        }
+                        .buttonStyle(Club360PrimaryGradientButtonStyle())
+                        .disabled(
+                            transferBusy
+                                || transferTargetCoachId.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                        )
+                        .confirmationDialog(
+                            "Transfer this member to another coach?",
+                            isPresented: $showTransferConfirm,
+                            titleVisibility: .visible
+                        ) {
+                            Button("Transfer", role: .destructive) {
+                                Task { await runTransferClient() }
+                            }
+                            Button("Cancel", role: .cancel) {}
+                        } message: {
+                            Text("You will lose access to this client’s hub after transfer.")
+                        }
+                    }
+                    .padding(16)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .club360Glass(cornerRadius: 22)
+                }
+                .padding(.horizontal, 18)
+                .padding(.vertical, 14)
+            }
+        }
+        .navigationTitle("Member settings")
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbarBackground(.ultraThinMaterial, for: .navigationBar)
+    }
+
+    private func applyMemberRole(_ role: String) async {
+        guard let uid = homeModel.memberAuthUserId else { return }
+        roleBusy = true
+        roleError = nil
+        roleSuccess = nil
+        defer { roleBusy = false }
+        do {
+            try await AdminRoleService.setUserRole(targetAuthUserId: uid, role: role)
+            roleSuccess =
+                role == "admin"
+                ? "Coach access updated. They will see the Hub after signing in again."
+                : "Member access set. They will see the client app after signing in again."
+        } catch {
+            roleError = error.localizedDescription
+        }
+    }
+
+    private func runTransferClient() async {
+        transferBusy = true
+        transferError = nil
+        defer { transferBusy = false }
+        do {
+            try await ClientTransferService.transferClient(
+                clientId: clientId,
+                targetCoachUserId: transferTargetCoachId
+            )
+            dismiss()
+        } catch {
+            transferError = error.localizedDescription
+        }
+    }
+
     private var adminNextSessionCard: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack {
                 Text("Next session")
                     .font(.caption.weight(.bold))
-                    .foregroundStyle(Club360Theme.cardSubtitle)
+                    .foregroundStyle(Club360Theme.captionOnTintedCard)
                     .textCase(.uppercase)
                 Spacer()
                 Image(systemName: "calendar.badge.clock")
-                    .foregroundStyle(Club360Theme.cardSubtitle)
+                    .foregroundStyle(Club360Theme.burgundy)
             }
             Text(homeModel.nextSessionLine ?? "No upcoming sessions scheduled.")
                 .font(.body.weight(.semibold))
@@ -396,7 +609,7 @@ struct AdminClientHubView: View {
                 .fixedSize(horizontal: false, vertical: true)
             Text("\(homeModel.upcomingSessionCount) upcoming")
                 .font(.caption.weight(.medium))
-                .foregroundStyle(Club360Theme.cardSubtitle)
+                .foregroundStyle(Club360Theme.captionOnTintedCard)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(18)

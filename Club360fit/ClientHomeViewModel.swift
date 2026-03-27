@@ -14,6 +14,9 @@ final class ClientHomeViewModel {
     var welcomeName = "there"
     var clientId: String?
 
+    /// Auth `user_id` on the loaded `clients` row — public avatar URL is `avatars/{user_id}/avatar.jpg`.
+    var memberAuthUserId: String?
+
     var canViewWorkouts = true
     var canViewNutrition = true
     var canViewEvents = false
@@ -22,8 +25,11 @@ final class ClientHomeViewModel {
     /// First day the client record existed (`clients.created_at`), for date pickers (e.g. daily habits).
     var memberSinceStartOfDay: Date?
 
-    /// Unread client notifications (Android home badge).
+    /// Unread client notifications (Android home badge). Uses member `read_at` or coach `coach_read_at` per `useCoachNotificationUnread`.
     var unreadNotifications = 0
+
+    /// When true (coach viewing a client hub), unread count uses `coach_read_at`; otherwise member `read_at`.
+    private var useCoachNotificationUnread = false
 
     /// Next upcoming session line for home card (e.g. “Mar 15, 2025 at 10:00 AM”).
     var nextSessionLine: String?
@@ -37,10 +43,15 @@ final class ClientHomeViewModel {
 
     func reloadNotificationsCount() async {
         guard let cid = clientId else { return }
-        unreadNotifications = (try? await ClientDataService.unreadNotificationCount(clientId: cid)) ?? 0
+        if useCoachNotificationUnread {
+            unreadNotifications = (try? await ClientDataService.unreadCoachNotificationCountForClient(clientId: cid)) ?? 0
+        } else {
+            unreadNotifications = (try? await ClientDataService.unreadNotificationCount(clientId: cid)) ?? 0
+        }
     }
 
     func load(session: Session) async {
+        useCoachNotificationUnread = false
         isLoading = true
         errorMessage = nil
         defer { isLoading = false }
@@ -62,11 +73,13 @@ final class ClientHomeViewModel {
 
     /// Coach/admin: load dashboard data for another client (same child views as the member app).
     func loadForClient(clientId requestedId: String) async {
+        useCoachNotificationUnread = true
         isLoading = true
         errorMessage = nil
         defer { isLoading = false }
 
         do {
+            try await ClientDataService.claimCoachAssignmentIfNeeded(clientId: requestedId)
             guard let row = try await ClientDataService.fetchClientById(requestedId),
                   let cid = row.id, !cid.isEmpty else {
                 errorMessage = "Client not found or not visible to your account."
@@ -83,6 +96,7 @@ final class ClientHomeViewModel {
 
     private func applyDashboard(for row: ClientDTO, clientId cid: String, welcomeEmail: String?) async throws {
         self.clientId = cid
+        memberAuthUserId = row.userId
         memberSinceStartOfDay = Self.startOfDayFromSupabaseTimestamp(row.createdAt)
         welcomeName = welcomeEmail.map { Self.welcomeName(from: row, email: $0) } ?? Self.coachViewWelcomeName(from: row)
         canViewWorkouts = row.canViewWorkouts
@@ -93,12 +107,15 @@ final class ClientHomeViewModel {
         async let workouts = ClientDataService.fetchWorkoutPlans(clientId: cid)
         async let meals = ClientDataService.fetchMealPlans(clientId: cid)
         async let checkIns = ClientDataService.fetchProgressCheckIns(clientId: cid)
-        async let unread = ClientDataService.unreadNotificationCount(clientId: cid)
 
         let wPlans = try await workouts
         let mPlans = try await meals
         let pRows = try await checkIns
-        unreadNotifications = (try? await unread) ?? 0
+        if useCoachNotificationUnread {
+            unreadNotifications = (try? await ClientDataService.unreadCoachNotificationCountForClient(clientId: cid)) ?? 0
+        } else {
+            unreadNotifications = (try? await ClientDataService.unreadNotificationCount(clientId: cid)) ?? 0
+        }
 
         let events: [ScheduleEventDTO]
         if row.canViewEvents {
@@ -116,7 +133,9 @@ final class ClientHomeViewModel {
     }
 
     private func resetSummary() {
+        useCoachNotificationUnread = false
         clientId = nil
+        memberAuthUserId = nil
         memberSinceStartOfDay = nil
         welcomeName = "there"
         currentWorkoutTitle = nil
