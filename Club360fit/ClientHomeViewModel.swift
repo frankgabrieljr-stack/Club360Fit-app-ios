@@ -57,9 +57,12 @@ final class ClientHomeViewModel {
         defer { isLoading = false }
 
         do {
-            let client = try await ClientDataService.fetchOwnClientProfile(userId: session.user.id.uuidString)
+            let client = try await ClientDataService.ensureOwnClientProfile(
+                userId: session.user.id.uuidString,
+                fullName: preferredFullName(from: session)
+            )
             guard let row = client, let cid = row.id, !cid.isEmpty else {
-                errorMessage = "No client profile found. Ask your coach to finish onboarding in Supabase."
+                errorMessage = "No client profile found. Your account exists, but onboarding did not finish in Supabase. Ask your coach/admin to check signup triggers and the `public.clients` row for your user."
                 resetSummary()
                 return
             }
@@ -204,5 +207,30 @@ final class ClientHomeViewModel {
             return full.split(whereSeparator: { $0.isWhitespace }).first.map(String.init) ?? "Member"
         }
         return "Member"
+    }
+
+    /// Uses Auth metadata to seed `clients.full_name` if self-heal insert is needed.
+    private func preferredFullName(from session: Session) -> String? {
+        let meta = session.user.userMetadata
+        if case let .string(name) = meta["name"] {
+            let t = name.trimmingCharacters(in: .whitespacesAndNewlines)
+            if !t.isEmpty { return t }
+        }
+        let first: String? = {
+            if case let .string(value) = meta["first_name"] {
+                let t = value.trimmingCharacters(in: .whitespacesAndNewlines)
+                return t.isEmpty ? nil : t
+            }
+            return nil
+        }()
+        let last: String? = {
+            if case let .string(value) = meta["last_name"] {
+                let t = value.trimmingCharacters(in: .whitespacesAndNewlines)
+                return t.isEmpty ? nil : t
+            }
+            return nil
+        }()
+        let merged = [first, last].compactMap { $0 }.joined(separator: " ").trimmingCharacters(in: .whitespacesAndNewlines)
+        return merged.isEmpty ? nil : merged
     }
 }

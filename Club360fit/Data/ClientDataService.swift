@@ -18,6 +18,29 @@ enum ClientDataService {
         return rows.first
     }
 
+    /// Best-effort self-heal for accounts where Auth signup succeeded but `public.clients` row is missing.
+    /// Returns the row if it exists or could be created and then fetched; otherwise `nil`.
+    static func ensureOwnClientProfile(userId: String, fullName: String?) async throws -> ClientDTO? {
+        if let existing = try await fetchOwnClientProfile(userId: userId) {
+            return existing
+        }
+
+        let trimmedName = fullName?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        let row: [String: AnyJSON] = [
+            "user_id": .string(userId),
+            "full_name": trimmedName.isEmpty ? .null : .string(trimmedName),
+        ]
+        do {
+            try await db
+                .from("clients")
+                .insert(row)
+                .execute()
+        } catch {
+            // If RLS/trigger config prevents direct insert, caller will surface a backend-oriented message.
+        }
+        return try await fetchOwnClientProfile(userId: userId)
+    }
+
     /// Single `clients` row by primary key (coach / admin flows).
     static func fetchClientById(_ clientId: String) async throws -> ClientDTO? {
         let rows: [ClientDTO] = try await db

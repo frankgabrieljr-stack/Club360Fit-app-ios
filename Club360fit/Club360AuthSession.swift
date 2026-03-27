@@ -72,7 +72,9 @@ final class Club360AuthSession {
             "food_restrictions": .string(foodRestrictions),
             "meals_per_day": .string(mealsPerDay),
             "workout_frequency": .string(workoutFrequency),
+            // Backward/forward compatible: some DB triggers expect `goal`, older ones used `overall_goal`.
             "overall_goal": .string(overallGoal),
+            "goal": .string(overallGoal),
             /// Coach/admin access is assigned in Supabase (Auth → Users → user metadata), not from the app.
             "role": .string("client"),
         ]
