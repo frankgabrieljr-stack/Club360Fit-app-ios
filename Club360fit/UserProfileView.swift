@@ -24,6 +24,7 @@ struct UserProfileView: View {
     @State private var profileMessage: String?
     @State private var isUploadingAvatar = false
     @State private var uploadError: String?
+    @State private var showUploadErrorAlert = false
 
     var body: some View {
         ZStack {
@@ -74,11 +75,13 @@ struct UserProfileView: View {
                         .font(.caption.weight(.medium))
                         .foregroundStyle(Club360Theme.burgundy.opacity(0.9))
 
-                    Button("Remove photo", role: .destructive) {
-                        Task { await removeAvatar() }
+                    if hasAvatarInMetadata {
+                        Button("Remove photo", role: .destructive) {
+                            Task { await removeAvatar() }
+                        }
+                        .font(.caption)
+                        .disabled(isUploadingAvatar)
                     }
-                    .font(.caption)
-                    .disabled(isUploadingAvatar)
 
                     Text(displayName)
                         .font(.title2.bold())
@@ -214,6 +217,24 @@ struct UserProfileView: View {
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .padding(16)
                         .club360Glass(cornerRadius: 22)
+
+                        NavigationLink {
+                            CoachDirectoryView(currentUserId: auth.session?.user.id.uuidString)
+                        } label: {
+                            HStack {
+                                Text("Coach directory (copy user IDs)")
+                                    .font(.body.weight(.semibold))
+                                    .foregroundStyle(Club360Theme.cardTitle)
+                                Spacer()
+                                Image(systemName: "chevron.right")
+                                    .font(.caption.weight(.semibold))
+                                    .foregroundStyle(Club360Theme.captionOnGlass.opacity(0.85))
+                            }
+                            .padding(16)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .club360Glass(cornerRadius: 22)
+                        }
+                        .buttonStyle(.plain)
                     }
 
                     if let uploadError {
@@ -242,7 +263,10 @@ struct UserProfileView: View {
         .navigationTitle("Profile")
         .navigationBarTitleDisplayMode(.inline)
         .toolbarBackground(.ultraThinMaterial, for: .navigationBar)
-        .onAppear(perform: populateEditableFieldsFromSession)
+        .onAppear {
+            populateEditableFieldsFromSession()
+            pickerItem = nil
+        }
         .onChange(of: auth.session?.user.id.uuidString) { _, _ in
             populateEditableFieldsFromSession()
         }
@@ -261,6 +285,11 @@ struct UserProfileView: View {
                     }
                 )
             }
+        }
+        .alert("Photo upload issue", isPresented: $showUploadErrorAlert) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(uploadError ?? "Could not process your photo.")
         }
     }
 
@@ -295,11 +324,21 @@ struct UserProfileView: View {
         )
     }
 
+    /// True when metadata has a non-blank avatar URL (empty strings are treated as no photo — avoids Coil/AsyncImage oddities and the “tap Remove when empty” workaround).
+    private var hasAvatarInMetadata: Bool {
+        avatarURLString != nil
+    }
+
     private var avatarURLString: String? {
         guard let meta = auth.session?.user.userMetadata else { return nil }
-        if case let .string(s) = meta["avatar_url"] { return s }
-        if case let .string(s) = meta["picture"] { return s }
-        return nil
+        let raw: String? = {
+            if case let .string(s) = meta["avatar_url"] { return s }
+            if case let .string(s) = meta["picture"] { return s }
+            return nil
+        }()
+        let trimmed = raw?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        guard !trimmed.isEmpty, let url = URL(string: trimmed), url.scheme != nil else { return nil }
+        return trimmed
     }
 
     private var displayName: String {
@@ -334,12 +373,17 @@ struct UserProfileView: View {
 
     private func prepareAvatarForEditing(from item: PhotosPickerItem?) async {
         guard let item else { return }
+        // Reset immediately so selecting the same image again still triggers this flow.
+        pickerItem = nil
+        uploadError = nil
         guard let raw = try? await item.loadTransferable(type: Data.self) else {
             uploadError = "Could not read the photo. Try another image."
+            showUploadErrorAlert = true
             return
         }
         guard let image = UIImage(data: raw) else {
             uploadError = "Could not use this image format. Try a photo from your library."
+            showUploadErrorAlert = true
             return
         }
         pendingAvatarImage = image
@@ -349,6 +393,7 @@ struct UserProfileView: View {
     private func uploadAvatarImage(_ image: UIImage) async {
         guard let jpeg = Club360AvatarImageProcessing.jpegDataForAvatarUpload(image) else {
             uploadError = "Could not process this photo. Try another image."
+            showUploadErrorAlert = true
             return
         }
         guard let uid = auth.session?.user.id.uuidString else { return }
@@ -361,11 +406,13 @@ struct UserProfileView: View {
                 try await auth.updateUserMetadata(["avatar_url": .string(url.absoluteString)])
             } catch {
                 uploadError = "Saved photo, but profile update failed: \(error.localizedDescription)"
+                showUploadErrorAlert = true
                 return
             }
             pickerItem = nil
         } catch {
             uploadError = "Upload failed: \(error.localizedDescription)"
+            showUploadErrorAlert = true
         }
     }
 
@@ -380,6 +427,7 @@ struct UserProfileView: View {
             ])
         } catch {
             uploadError = "Could not remove photo: \(error.localizedDescription)"
+            showUploadErrorAlert = true
         }
     }
 

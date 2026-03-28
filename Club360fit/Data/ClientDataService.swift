@@ -5,6 +5,10 @@ import Supabase
 /// PostgREST calls aligned with Android repositories (`ClientSelfRepository`, `WorkoutPlanRepository`, etc.).
 enum ClientDataService {
     private static var db: SupabaseClient { Club360FitSupabase.shared }
+    private struct WorkoutSessionCoachReplyPatch: Encodable {
+        let coach_reply: String
+        let coach_replied_at: String
+    }
     private struct ClientAccessPatch: Encodable {
         let can_view_workouts: Bool
         let can_view_nutrition: Bool
@@ -64,6 +68,43 @@ enum ClientDataService {
         try await db
             .from("clients")
             .select()
+            .order("full_name", ascending: true)
+            .execute()
+            .value
+    }
+
+    private struct ProfileRoleRow: Decodable, Sendable {
+        let role: String
+    }
+
+    /// `public.profiles.role` for this auth user (`admin` / `client`). Coach JWT must be `admin` (RLS).
+    static func fetchProfileRoleForUser(userId: String) async throws -> String? {
+        let trimmed = userId.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return nil }
+        let rows: [ProfileRoleRow] = try await db
+            .from("profiles")
+            .select("role")
+            .eq("id", value: trimmed)
+            .limit(1)
+            .execute()
+            .value
+        return rows.first?.role.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+    }
+
+    /// One row from `public.profiles` for coach directory; `id` is the Supabase Auth user id (use for transfers).
+    struct CoachDirectoryProfileRow: Decodable, Sendable, Identifiable {
+        let id: String
+        let full_name: String?
+        let email: String?
+        let role: String
+    }
+
+    /// Coach accounts (`profiles.role` = admin) so admins can copy another coach’s Auth user id. Requires admin JWT (RLS).
+    static func fetchCoachDirectoryProfiles() async throws -> [CoachDirectoryProfileRow] {
+        try await db
+            .from("profiles")
+            .select("id, full_name, email, role")
+            .eq("role", value: "admin")
             .order("full_name", ascending: true)
             .execute()
             .value
@@ -148,30 +189,73 @@ enum ClientDataService {
     }
 
     /// Insert a session log; ignores duplicate-day errors like Android.
-    static func logWorkoutSession(clientId: String, sessionDate: Date) async {
+    static func logWorkoutSession(clientId: String, sessionDate: Date, noteToCoach: String? = nil) async {
+        let trimmedNote = noteToCoach?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
         let weekStart = Calendar.weekStartSunday(containing: sessionDate)
         let row = WorkoutSessionLogInsert(
             clientId: clientId,
             sessionDate: Club360DateFormats.dayString(sessionDate),
-            weekStart: Club360DateFormats.dayString(weekStart)
+            weekStart: Club360DateFormats.dayString(weekStart),
+            noteToCoach: trimmedNote.isEmpty ? nil : String(trimmedNote.prefix(1000))
         )
         do {
-            try await db
+            let inserted: [WorkoutSessionLogDTO] = try await db
                 .from("workout_session_logs")
                 .insert(row)
+                .select()
                 .execute()
+                .value
             let day = Club360DateFormats.dayString(sessionDate)
+            let body: String
+            if trimmedNote.isEmpty {
+                body = "Member logged a session for \(day)."
+            } else {
+                body = "Member logged a session for \(day). Note: \(String(trimmedNote.prefix(500)))"
+            }
             await ClientDataService.notifyCoachAboutClient(
                 clientId: clientId,
                 kind: "workout_session_logged",
                 title: "Workout session logged",
-                body: "Member logged a session for \(day).",
+                body: body,
                 refType: "workout_session",
-                refId: nil
+                refId: inserted.first?.id
             )
         } catch {
             // duplicate day / unique constraint — same as Android
         }
+    }
+
+    /// Coach/admin: write a timestamped reply to the member's logged workout note.
+    static func replyToWorkoutSessionNote(
+        clientId: String,
+        workoutSessionLogId: String?,
+        replyText: String
+    ) async throws {
+        let trimmed = replyText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+
+        let now = ISO8601DateFormatter().string(from: Date())
+        if let workoutSessionLogId, !workoutSessionLogId.isEmpty {
+            let patch = WorkoutSessionCoachReplyPatch(
+                coach_reply: String(trimmed.prefix(1000)),
+                coach_replied_at: now
+            )
+            try await db
+                .from("workout_session_logs")
+                .update(patch)
+                .eq("id", value: workoutSessionLogId)
+                .eq("client_id", value: clientId)
+                .execute()
+        }
+
+        await notifyMemberFromCoach(
+            clientId: clientId,
+            kind: "workout_session_reply",
+            title: "Coach reply to your workout note",
+            body: String(trimmed.prefix(1000)),
+            refType: "workout_session",
+            refId: workoutSessionLogId
+        )
     }
 
     // MARK: - Progress check-ins (`progress_check_ins`)

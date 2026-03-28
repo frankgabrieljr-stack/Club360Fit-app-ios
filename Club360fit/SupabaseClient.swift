@@ -19,4 +19,19 @@ enum Club360FitSupabase: Sendable {
     static func handleAuthRedirectURL(_ url: URL) {
         shared.auth.handle(url)
     }
+
+    /// Options for Edge Functions that call `getUser()` with the caller’s JWT (`set-user-role`, `transfer-client`, etc.).
+    /// Refreshes the session first so the access token is not expired (the Functions **gateway** validates JWT before
+    /// your code runs). Sends explicit `Authorization` + `apikey` on each invoke so the request matches what Supabase
+    /// expects, even if header merging on the shared ``FunctionsClient`` would otherwise omit them.
+    static func functionInvokeOptions<T: Encodable>(body: T) async throws -> FunctionInvokeOptions {
+        _ = try await shared.auth.refreshSession()
+        let session = try await shared.auth.session
+        shared.functions.setAuth(token: session.accessToken)
+        let headers = [
+            "Authorization": "Bearer \(session.accessToken)",
+            "apikey": AppConfig.supabaseAnonKey,
+        ]
+        return FunctionInvokeOptions(headers: headers, body: body)
+    }
 }

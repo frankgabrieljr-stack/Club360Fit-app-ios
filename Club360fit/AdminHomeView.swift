@@ -1,3 +1,4 @@
+import Auth
 import SwiftUI
 
 /// Coach / admin shell — client list, gallery, and account (mirrors Android `AdminHomeScreen` tabs).
@@ -76,7 +77,11 @@ private struct AdminClientsTab: View {
                                 NavigationLink {
                                     AdminClientHubView(clientId: cid, displayTitle: AdminViewModel.listTitle(for: client))
                                 } label: {
-                                    AdminClientRow(title: AdminViewModel.listTitle(for: client), subtitle: "Plans, meals, progress")
+                                    AdminClientRow(
+                                        title: AdminViewModel.listTitle(for: client),
+                                        subtitle: "Plans, meals, progress",
+                                        platformRole: model.profileRolesByUserId[client.userId]
+                                    )
                                 }
                                 .buttonStyle(.plain)
                             } else {
@@ -125,6 +130,7 @@ private struct AdminClientsTab: View {
 private struct AdminClientRow: View {
     let title: String
     let subtitle: String
+    var platformRole: String? = nil
 
     var body: some View {
         HStack(alignment: .center, spacing: 12) {
@@ -132,6 +138,11 @@ private struct AdminClientRow: View {
                 Text(title)
                     .font(.headline.weight(.semibold))
                     .foregroundStyle(Club360Theme.cardTitle)
+                if let platformRole {
+                    Text(platformRole == "admin" ? "App login: Admin" : "App login: Client")
+                        .font(.caption2.weight(.semibold))
+                        .foregroundStyle(platformRole == "admin" ? Club360Theme.tealDark : Club360Theme.captionOnGlass)
+                }
                 Text(subtitle)
                     .font(.caption)
                     .foregroundStyle(Club360Theme.captionOnGlass)
@@ -154,6 +165,7 @@ struct AdminClientHubView: View {
     let displayTitle: String
 
     @Environment(\.dismiss) private var dismiss
+    @Environment(Club360AuthSession.self) private var auth
 
     @State private var homeModel = ClientHomeViewModel()
     @State private var roleBusy = false
@@ -172,6 +184,8 @@ struct AdminClientHubView: View {
     @State private var transferBusy = false
     @State private var transferError: String?
     @State private var showTransferConfirm = false
+    @State private var showCoachDirectorySheet = false
+    @State private var showTransferSuccess = false
 
     var body: some View {
         Group {
@@ -248,7 +262,7 @@ struct AdminClientHubView: View {
                                     .stroke(Color.black.opacity(0.1), lineWidth: 1)
                             )
                         VStack(alignment: .leading, spacing: 4) {
-                            Text("Member")
+                            Text(homeModel.platformAccessCaption)
                                 .font(.caption.weight(.bold))
                                 .foregroundStyle(Club360Theme.captionOnGlass)
                                 .textCase(.uppercase)
@@ -561,11 +575,23 @@ struct AdminClientHubView: View {
                             .font(.headline.weight(.semibold))
                             .foregroundStyle(Club360Theme.cardTitle)
                         Text(
-                            "Paste the other coach’s user ID (UUID from Supabase → Authentication → Users). You must be this member’s current coach. After transfer, you will no longer see them in your list."
+                            "Paste another coach’s user ID, or open the directory below. You must be this member’s current coach. After transfer, you will no longer see them in your list."
                         )
                         .font(.footnote)
                         .foregroundStyle(Club360Theme.captionOnGlass)
                         .fixedSize(horizontal: false, vertical: true)
+                        Button {
+                            showCoachDirectorySheet = true
+                        } label: {
+                            HStack {
+                                Image(systemName: "person.2.fill")
+                                Text("Browse coaches & copy IDs")
+                                    .font(.subheadline.weight(.semibold))
+                            }
+                            .frame(maxWidth: .infinity)
+                        }
+                        .buttonStyle(.bordered)
+                        .tint(Club360Theme.burgundy)
                         TextField("Target coach user UUID", text: $transferTargetCoachId)
                             .textContentType(.none)
                             .autocorrectionDisabled()
@@ -612,6 +638,24 @@ struct AdminClientHubView: View {
         .onAppear {
             syncAccessTogglesFromHomeModel()
         }
+        .sheet(isPresented: $showCoachDirectorySheet) {
+            NavigationStack {
+                CoachDirectoryView(
+                    currentUserId: auth.session?.user.id.uuidString,
+                    onSelectForTransfer: { id in
+                        transferTargetCoachId = id
+                        showCoachDirectorySheet = false
+                    }
+                )
+            }
+        }
+        .alert("Transfer complete", isPresented: $showTransferSuccess) {
+            Button("OK") { dismiss() }
+        } message: {
+            Text(
+                "This member is now assigned to the other coach. They will no longer appear in your client list."
+            )
+        }
     }
 
     private func applyMemberRole(_ role: String) async {
@@ -640,7 +684,7 @@ struct AdminClientHubView: View {
                 clientId: clientId,
                 targetCoachUserId: transferTargetCoachId
             )
-            dismiss()
+            showTransferSuccess = true
         } catch {
             transferError = error.localizedDescription
         }
